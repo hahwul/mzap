@@ -30,6 +30,8 @@ $ brew install mzap
 ```
 
 ## Usage
+**!! Important**
+No API key related options have been added yet. Please check `Disable the API Key` on ZAP.
 ```
 Usage:
   mzap [command]
