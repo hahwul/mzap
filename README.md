@@ -11,6 +11,9 @@
 </h1>
 Multiple target ZAP Scanning / mzap is a tool for scanning N*N in ZAP.
 
+## Concept
+![1414](https://user-images.githubusercontent.com/13212227/90961636-4a18bb80-e4e5-11ea-9913-a573fe748ce4.png)
+
 ## Usage
 ```
 Usage:
