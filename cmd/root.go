@@ -37,8 +37,8 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().StringVar(&URLs, "urls", "", "URL list file / e.g --urls hosts.txt")
-	rootCmd.Flags().StringVar(&apiHosts, "hosts", "http://localhost:8090", "ZAP API Host(s) address / e.g --hosts http://localhost:8090,http://192.168.0.4:8090")
+	rootCmd.PersistentFlags().StringVar(&URLs, "urls", "", "URL list file / e.g --urls hosts.txt")
+	rootCmd.PersistentFlags().StringVar(&apiHosts, "hosts", "http://localhost:8090", "ZAP API Host(s) address / e.g --hosts http://localhost:8090,http://192.168.0.4:8090")
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	// zap "github.com/hahwul/mzap/zap"
+	zap "github.com/hahwul/mzap/pkg/zap"
 )
 
 // spiderCmd represents the spider command
@@ -13,6 +13,7 @@ var spiderCmd = &cobra.Command{
 	Short: "Add ZAP spider",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("spider called")
+		zap.Spider(URLs,apiHosts)
 	},
 }
 

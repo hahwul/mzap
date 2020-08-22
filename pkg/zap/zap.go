@@ -3,6 +3,7 @@ package zap
 import (
 	"net/http"
 	"strings"
+	"fmt"
 	"bufio"
 	"os"
 	"sync"
@@ -45,12 +46,15 @@ func Run(urls,apis,prefix string) {
 
 	urlChan := make(chan string)
 	arrayAPIs := strings.Split(apis, ",")
+	fmt.Println(arrayAPIs)
+	fmt.Println(arrayUrls)
 	for _ , api := range arrayAPIs {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for target := range urlChan {
 				req, err := http.NewRequest("GET", api+prefix, nil)
+				fmt.Println(req)
 				if err != nil {
 					panic(err)
 				}
@@ -66,7 +70,7 @@ func Run(urls,apis,prefix string) {
 				}
 				defer resp.Body.Close()	
 			}
-		}
+		}()
 	}
 	for _, v := range arrayUrls {
 		urlChan <- v
