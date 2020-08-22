@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"fmt"
 
 	"github.com/spf13/cobra"
+	zap "github.com/hahwul/mzap/pkg/zap"
 )
 
 // ascanCmd represents the ascan command
@@ -11,7 +11,7 @@ var ascanCmd = &cobra.Command{
 	Use:   "ascan",
 	Short: "Add ActiveScan ZAP",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("ascan called")
+		zap.ActiveScan(URLs,apiHosts)
 	},
 }
 

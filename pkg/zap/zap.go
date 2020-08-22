@@ -3,7 +3,7 @@ package zap
 import (
 	"net/http"
 	"strings"
-	"fmt"
+	log "github.com/sirupsen/logrus"
 	"bufio"
 	"os"
 	"sync"
@@ -26,6 +26,11 @@ const AjaxSpiderAPI = "/JSON/ajaxSpider/action/scan/"
 // http://localhost:8090/JSON/ascan/action/scan/?url=%&maxChildren=&recurse=&contextName=&subtreeOnly=
 // http://localhost:8090/JSON/ajaxSpider/action/scan/?url=&inScope=&contextName=&subtreeOnly=
 func Run(urls,apis,prefix string) {
+	log.WithFields(log.Fields{
+		"Size of Target": len(urls),
+		"Prefix": prefix,
+	}).Info("Start")
+
 	var wg sync.WaitGroup	
 	var arrayUrls []string
 
@@ -46,15 +51,11 @@ func Run(urls,apis,prefix string) {
 
 	urlChan := make(chan string)
 	arrayAPIs := strings.Split(apis, ",")
-	fmt.Println(arrayAPIs)
-	fmt.Println(arrayUrls)
 	for _ , api := range arrayAPIs {
 		wg.Add(1)
 		go func() {
-			defer wg.Done()
 			for target := range urlChan {
 				req, err := http.NewRequest("GET", api+prefix, nil)
-				fmt.Println(req)
 				if err != nil {
 					panic(err)
 				}
@@ -65,15 +66,23 @@ func Run(urls,apis,prefix string) {
  
 				client := &http.Client{}
 				resp, err := client.Do(req)
+
+				log.WithFields(log.Fields{
+					"Target": target,
+					"ZAP API": api,
+				}).Info("Added")
+
 				if err != nil {
 					//panic(err)
 				}
 				defer resp.Body.Close()	
 			}
+			wg.Done()
 		}()
 	}
 	for _, v := range arrayUrls {
 		urlChan <- v
 	}
+	close(urlChan)
 	wg.Wait()
 }

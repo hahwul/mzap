@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"fmt"
 
 	"github.com/spf13/cobra"
+	zap "github.com/hahwul/mzap/pkg/zap"
 )
 
 // ajaxspiderCmd represents the ajaxspider command
@@ -11,7 +11,7 @@ var ajaxspiderCmd = &cobra.Command{
 	Use:   "ajaxspider",
 	Short: "Add AjaxSpider ZAP",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("ajaxspider called")
+		zap.AjaxSpider(URLs,apiHosts)
 	},
 }
 
