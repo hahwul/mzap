@@ -1,5 +1,5 @@
 # mzap
-Multiple target ZAP Scanning
+Multiple target ZAP Scanning / mzap is a tool for scanning N*N in ZAP.
 
 ## Usage
 ```
