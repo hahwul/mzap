@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <a href=""><img src="https://user-images.githubusercontent.com/13212227/90962028-d7f5a600-e4e7-11ea-9fe8-2f2ecb8e6a15.png" alt="" width="400px;"></a>
+  <a href=""><img src="https://user-images.githubusercontent.com/13212227/90962250-b72e5000-e4e9-11ea-8c42-75e9d0d799be.jpg" width="100%"></a>
   <br>
   MZAP
   <br>
