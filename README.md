@@ -25,15 +25,14 @@ Available Commands:
   help        Help about any command
   spider      Add ZAP spider
   stop        Stop Scanning
-  version     show version
+  version     Show version
 
 Flags:
+      --apis string     ZAP API Host(s) address
+                        e.g --apis http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
       --config string   config file (default is $HOME/.mzap.yaml)
   -h, --help            help for mzap
-      --hosts string    ZAP API Host(s) address / e.g --hosts http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
       --urls string     URL list file / e.g --urls hosts.txt
-
-Use "mzap [command] --help" for more information about a command.
 ```
 
 ```

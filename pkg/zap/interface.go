@@ -1,5 +1,9 @@
 package zap
 
+import (
+	"strings"
+)
+
 // Spider is interface of spider
 func Spider(urls,apis string){
 	Run(urls,apis,SpiderAPI)
@@ -13,4 +17,29 @@ func AjaxSpider(urls,apis string){
 // ActiveScan is interface of ascan
 func ActiveScan(urls,apis string){
 	Run(urls,apis,AScanAPI)
+}
+
+// StopSpider is interface of stop spider
+func StopSpider(apis string){
+	arrayAPIs := strings.Split(apis, ",")
+	for _,v := range arrayAPIs{
+		Stop(v,SpiderStop)
+	}
+}
+
+// StopActiveScan is interface of stop ascan
+func StopActiveScan(apis string){
+	arrayAPIs := strings.Split(apis, ",")
+	for _,v := range arrayAPIs{
+		Stop(v,AScanStop)
+	}
+
+}
+
+// StopAjaxSpider is interface of stop ajax spider
+func StopAjaxSpider(apis string){
+	arrayAPIs := strings.Split(apis, ",")
+	for _,v := range arrayAPIs{
+		Stop(v,AjaxSpiderStop)
+	}
 }
