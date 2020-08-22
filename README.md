@@ -14,6 +14,21 @@
 ## Concept
 ![1414](https://user-images.githubusercontent.com/13212227/90961636-4a18bb80-e4e5-11ea-9913-a573fe748ce4.png)
 
+## Installation
+### go-get
+```
+$ go get -u github.com/hahwul/mzap
+```
+### snapcraft
+```
+$ sudo snap install 
+```
+### homebrew
+```
+$ brew tap hahwul/mzap
+$ brew install mzap
+```
+
 ## Usage
 ```
 Usage:
