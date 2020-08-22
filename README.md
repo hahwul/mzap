@@ -13,6 +13,27 @@ Multiple target ZAP Scanning / mzap is a tool for scanning N*N in ZAP.
 
 ## Usage
 ```
+Usage:
+  mzap [command]
+
+Available Commands:
+  ajaxspider  Add AjaxSpider ZAP
+  ascan       Add ActiveScan ZAP
+  help        Help about any command
+  spider      Add ZAP spider
+  stop        Stop Scanning
+  version     show version
+
+Flags:
+      --config string   config file (default is $HOME/.mzap.yaml)
+  -h, --help            help for mzap
+      --hosts string    ZAP API Host(s) address / e.g --hosts http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
+      --urls string     URL list file / e.g --urls hosts.txt
+
+Use "mzap [command] --help" for more information about a command.
+```
+
+```
 $ mzap spider --urls sample/target.txt
 INFO[0000] Start                                         Prefix=/JSON/spider/action/scan/ Size of Target=17
 INFO[0000] Added                                         Target="http://testphp.vulnweb.com/" ZAP API="http://localhost:8090"
