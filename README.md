@@ -21,7 +21,7 @@ $ go get -u github.com/hahwul/mzap
 ```
 ### snapcraft
 ```
-$ sudo snap install mzap
+$ sudo snap install mzap --classic 
 ```
 ### homebrew
 ```
