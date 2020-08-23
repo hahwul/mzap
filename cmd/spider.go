@@ -1,7 +1,7 @@
 package cmd
 
 import (
-
+	"fmt"
 	"github.com/spf13/cobra"
 	zap "github.com/hahwul/mzap/pkg/zap"
 )
@@ -11,7 +11,11 @@ var spiderCmd = &cobra.Command{
 	Use:   "spider",
 	Short: "Add ZAP spider",
 	Run: func(cmd *cobra.Command, args []string) {
-		zap.Spider(URLs,apiHosts)
+		if URLs != "" {
+			zap.Spider(URLs,apiHosts, options)
+		} else {
+			fmt.Println("Please input --urls flag")
+		}
 	},
 }
 

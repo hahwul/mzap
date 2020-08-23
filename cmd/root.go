@@ -5,11 +5,13 @@ import (
 	"github.com/spf13/cobra"
 	"os"
 
+	zap "github.com/hahwul/mzap/pkg/zap"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
 
-var cfgFile, URLs, apiHosts string
+var cfgFile, URLs, apiHosts, APIKey string
+var options zap.OptionsZAP
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -37,8 +39,14 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
+	rootCmd.PersistentFlags().StringVar(&APIKey, "apikey", "", "ZAP API Key / if you disable apikey, not use this option")
 	rootCmd.PersistentFlags().StringVar(&URLs, "urls", "", "URL list file / e.g --urls hosts.txt")
 	rootCmd.PersistentFlags().StringVar(&apiHosts, "apis", "http://localhost:8090", "ZAP API Host(s) address\ne.g --apis http://localhost:8090,http://192.168.0.4:8090")
+
+	options = zap.OptionsZAP {
+		APIKey: APIKey,
+	}
+	_= options
 }
 
 // initConfig reads in config file and ENV variables if set.

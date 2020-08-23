@@ -1,7 +1,7 @@
 package cmd
 
 import (
-
+	"fmt"
 	"github.com/spf13/cobra"
 	zap "github.com/hahwul/mzap/pkg/zap"
 )
@@ -11,7 +11,11 @@ var ascanCmd = &cobra.Command{
 	Use:   "ascan",
 	Short: "Add ActiveScan ZAP",
 	Run: func(cmd *cobra.Command, args []string) {
-		zap.ActiveScan(URLs,apiHosts)
+		if URLs != "" {
+			zap.ActiveScan(URLs,apiHosts, options)
+		} else {
+			fmt.Println("Please input --urls flag")
+		}
 	},
 }
 

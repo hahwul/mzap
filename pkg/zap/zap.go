@@ -22,10 +22,7 @@ const SpiderAPI = "/JSON/spider/action/scan/"
 const AScanAPI = "/JSON/ascan/action/scan/"
 const AjaxSpiderAPI = "/JSON/ajaxSpider/action/scan/"
 
-// http://localhost:8090/JSON/spider/action/scan/?url=%&maxChildren=&recurse=&contextName=&subtreeOnly=
-// http://localhost:8090/JSON/ascan/action/scan/?url=%&maxChildren=&recurse=&contextName=&subtreeOnly=
-// http://localhost:8090/JSON/ajaxSpider/action/scan/?url=&inScope=&contextName=&subtreeOnly=
-func Run(urls,apis,prefix string) {
+func Run(urls,apis,prefix string, options OptionsZAP) {
 	log.WithFields(log.Fields{
 		"Size of Target": len(urls),
 		"Prefix": prefix,
@@ -62,7 +59,9 @@ func Run(urls,apis,prefix string) {
  				q := req.URL.Query()
 				q.Add("url",target)
 				req.URL.RawQuery = q.Encode()
-				req.Header.Add("User-Agent", "mzap")
+				if options.APIKey != "" {
+					req.Header.Add("X-ZAP-API-Key", options.APIKey)
+				}
  
 				client := &http.Client{}
 				resp, err := client.Do(req)

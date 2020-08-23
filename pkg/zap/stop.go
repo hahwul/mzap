@@ -9,12 +9,14 @@ const AScanStop = "/JSON/ascan/action/stopAllScans/?"
 const SpiderStop = "/JSON/spider/action/stopAllScans/?"
 const AjaxSpiderStop = "/JSON/ajaxSpider/action/stopAllScans/?"
 
-func Stop(api, prefix string){
+func Stop(api, prefix string, options OptionsZAP){
 	req, err := http.NewRequest("GET", api+prefix, nil)
 	if err != nil {
 		panic(err)
 	}
-	req.Header.Add("User-Agent", "mzap")
+	if options.APIKey != "" {
+		req.Header.Add("X-ZAP-API-Key", options.APIKey)
+	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

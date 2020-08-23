@@ -9,23 +9,23 @@ import (
 
 // stopCmd represents the stop command
 var stopCmd = &cobra.Command{
-	Use:   "stop",
+	Use:   "stop (spider/ascan/ajaxspider/all)",
 	Short: "Stop Scanning",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("stop called")
 		if len(args) >= 1 {
 			if args[0] == "spider" {
-				zap.StopSpider(apiHosts)
+				zap.StopSpider(apiHosts, options)
 			} else if args[0] == "ascan" {
-				zap.StopActiveScan(apiHosts)
+				zap.StopActiveScan(apiHosts, options)
 
 			} else if  args[0] == "ajaxspider"{
-				zap.StopAjaxSpider(apiHosts)
+				zap.StopAjaxSpider(apiHosts, options)
 
 			} else if args[0] == "all" {
-				zap.StopSpider(apiHosts)
-				zap.StopAjaxSpider(apiHosts)
-				zap.StopActiveScan(apiHosts)
+				zap.StopSpider(apiHosts, options)
+				zap.StopAjaxSpider(apiHosts, options)
+				zap.StopActiveScan(apiHosts, options)
 			}
 		} else {
 			fmt.Println("Please input scanning mode for stop")
