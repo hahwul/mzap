@@ -30,8 +30,6 @@ $ brew install mzap
 ```
 
 ## Usage
-**!! Important**
-No API key related options have been added yet. Please check `Disable the API Key` on ZAP.
 ```
 Usage:
   mzap [command]
@@ -45,6 +43,7 @@ Available Commands:
   version     Show version
 
 Flags:
+      --apikey string   ZAP API Key / if you disable apikey, not use this option
       --apis string     ZAP API Host(s) address
                         e.g --apis http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
       --config string   config file (default is $HOME/.mzap.yaml)
