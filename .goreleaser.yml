@@ -76,4 +76,4 @@ snapcrafts:
     license: MIT
     apps:
       mzap:
-        plugs: ["home"]
+        plugs: ["home","network"]
