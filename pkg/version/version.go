@@ -1,4 +1,4 @@
 package version
 
-// VERSIONS is version
+// VERSION is version
 const VERSION = "v1.1.3"
