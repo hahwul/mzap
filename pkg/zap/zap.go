@@ -1,34 +1,41 @@
 package zap
 
 import (
-	"net/http"
-	"strings"
-	log "github.com/sirupsen/logrus"
 	"bufio"
+	log "github.com/sirupsen/logrus"
+	"net/http"
 	"os"
+	"strings"
 	"sync"
 )
 
+// ZapObject is object for zap api
 type ZapObject struct {
-	URL string
+	URL         string
 	maxChildren int
-	Recurse string
-	inScope bool
+	Recurse     string
+	inScope     bool
 	contextName string
 	subtreeOnly bool
 }
 
+// SpiderAPI is api for add scan
 const SpiderAPI = "/JSON/spider/action/scan/"
+
+// AScanAPI is api for add scan
 const AScanAPI = "/JSON/ascan/action/scan/"
+
+// AjaxSpiderAPI is api for add scan
 const AjaxSpiderAPI = "/JSON/ajaxSpider/action/scan/"
 
-func Run(urls,apis,prefix string, options OptionsZAP) {
+// Run is running app
+func Run(urls, apis, prefix string, options OptionsZAP) {
 	log.WithFields(log.Fields{
 		"Size of Target": len(urls),
-		"Prefix": prefix,
+		"Prefix":         prefix,
 	}).Info("Start")
 
-	var wg sync.WaitGroup	
+	var wg sync.WaitGroup
 	var arrayUrls []string
 
 	fo, err := os.Open(urls)
@@ -48,7 +55,7 @@ func Run(urls,apis,prefix string, options OptionsZAP) {
 
 	urlChan := make(chan string)
 	arrayAPIs := strings.Split(apis, ",")
-	for _ , api := range arrayAPIs {
+	for _, api := range arrayAPIs {
 		wg.Add(1)
 		go func() {
 			for target := range urlChan {
@@ -56,25 +63,25 @@ func Run(urls,apis,prefix string, options OptionsZAP) {
 				if err != nil {
 					panic(err)
 				}
- 				q := req.URL.Query()
-				q.Add("url",target)
+				q := req.URL.Query()
+				q.Add("url", target)
 				req.URL.RawQuery = q.Encode()
 				if options.APIKey != "" {
 					req.Header.Add("X-ZAP-API-Key", options.APIKey)
 				}
- 
+
 				client := &http.Client{}
 				resp, err := client.Do(req)
 
 				log.WithFields(log.Fields{
-					"Target": target,
+					"Target":  target,
 					"ZAP API": api,
 				}).Info("Added")
 
 				if err != nil {
 					//panic(err)
 				}
-				defer resp.Body.Close()	
+				defer resp.Body.Close()
 			}
 			wg.Done()
 		}()

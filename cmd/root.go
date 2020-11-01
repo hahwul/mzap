@@ -16,7 +16,7 @@ var options zap.OptionsZAP
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "mzap",
+	Use: "mzap",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -44,10 +44,11 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&URLs, "urls", "", "URL list file / e.g --urls hosts.txt")
 	rootCmd.PersistentFlags().StringVar(&apiHosts, "apis", "http://localhost:8090", "ZAP API Host(s) address\ne.g --apis http://localhost:8090,http://192.168.0.4:8090")
 
-	options = zap.OptionsZAP {
+	options = zap.OptionsZAP{
 		APIKey: APIKey,
+		URLs:   URLs,
 	}
-	_= options
+	_ = options
 }
 
 // initConfig reads in config file and ENV variables if set.

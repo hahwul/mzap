@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+// Banner is show banner
 func Banner(){
 	fmt.Fprintln(os.Stderr,"          ,/")
 	fmt.Fprintln(os.Stderr,"        ,'/")

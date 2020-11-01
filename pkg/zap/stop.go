@@ -1,15 +1,21 @@
 package zap
 
 import (
-	"net/http"
 	log "github.com/sirupsen/logrus"
+	"net/http"
 )
 
+// AScanStop is stop all active scans
 const AScanStop = "/JSON/ascan/action/stopAllScans/?"
+
+// SpiderStop is stop all spider scans
 const SpiderStop = "/JSON/spider/action/stopAllScans/?"
+
+// AjaxSpiderStop is stop all ajax spider scans
 const AjaxSpiderStop = "/JSON/ajaxSpider/action/stopAllScans/?"
 
-func Stop(api, prefix string, options OptionsZAP){
+// Stop is stop zap
+func Stop(api, prefix string, options OptionsZAP) {
 	req, err := http.NewRequest("GET", api+prefix, nil)
 	if err != nil {
 		panic(err)
@@ -28,5 +34,5 @@ func Stop(api, prefix string, options OptionsZAP){
 	if err != nil {
 		//panic(err)
 	}
-	defer resp.Body.Close()	
+	defer resp.Body.Close()
 }

@@ -5,41 +5,41 @@ import (
 )
 
 // Spider is interface of spider
-func Spider(urls,apis string, options OptionsZAP){
-	Run(urls,apis,SpiderAPI, options)
+func Spider(urls, apis string, options OptionsZAP) {
+	Run(urls, apis, SpiderAPI, options)
 }
 
 // AjaxSpider is interface of ajax spider
-func AjaxSpider(urls,apis string, options OptionsZAP){
-	Run(urls,apis,AjaxSpiderAPI, options)
+func AjaxSpider(urls, apis string, options OptionsZAP) {
+	Run(urls, apis, AjaxSpiderAPI, options)
 }
 
 // ActiveScan is interface of ascan
-func ActiveScan(urls,apis string, options OptionsZAP){
-	Run(urls,apis,AScanAPI, options)
+func ActiveScan(urls, apis string, options OptionsZAP) {
+	Run(urls, apis, AScanAPI, options)
 }
 
 // StopSpider is interface of stop spider
-func StopSpider(apis string, options OptionsZAP){
+func StopSpider(apis string, options OptionsZAP) {
 	arrayAPIs := strings.Split(apis, ",")
-	for _,v := range arrayAPIs{
-		Stop(v,SpiderStop, options)
+	for _, v := range arrayAPIs {
+		Stop(v, SpiderStop, options)
 	}
 }
 
 // StopActiveScan is interface of stop ascan
-func StopActiveScan(apis string, options OptionsZAP){
+func StopActiveScan(apis string, options OptionsZAP) {
 	arrayAPIs := strings.Split(apis, ",")
-	for _,v := range arrayAPIs{
-		Stop(v,AScanStop, options)
+	for _, v := range arrayAPIs {
+		Stop(v, AScanStop, options)
 	}
 
 }
 
 // StopAjaxSpider is interface of stop ajax spider
-func StopAjaxSpider(apis string, options OptionsZAP){
+func StopAjaxSpider(apis string, options OptionsZAP) {
 	arrayAPIs := strings.Split(apis, ",")
-	for _,v := range arrayAPIs{
-		Stop(v,AjaxSpiderStop, options)
+	for _, v := range arrayAPIs {
+		Stop(v, AjaxSpiderStop, options)
 	}
 }
