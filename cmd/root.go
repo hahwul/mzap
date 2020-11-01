@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 	"os"
 
+	version "github.com/hahwul/mzap/pkg/version"
 	zap "github.com/hahwul/mzap/pkg/zap"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
@@ -16,7 +17,6 @@ var options zap.OptionsZAP
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "mzap",
-	Short: "Multiple target/agent ZAP scanning",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -29,6 +29,7 @@ func Execute() {
 }
 
 func init() {
+	version.Banner()
 	cobra.OnInitialize(initConfig)
 
 	// Here you will define your flags and configuration settings.
