@@ -4,13 +4,16 @@
   <br>
   MZAP
   <br>
-  <img src="https://img.shields.io/github/v/release/hahwul/mzap?style=flat-square"> 
+  <img src="https://img.shields.io/github/v/release/hahwul/mzap?style=flat"> 
   <a href="https://snapcraft.io/mzap"><img src="https://snapcraft.io/mzap/badge.svg" /></a>
-  <img src="https://img.shields.io/github/languages/top/hahwul/mzap?style=flat-square"> <img src="https://app.codacy.com/project/badge/Grade/6c7f7be26bed4673b65001153f004ddd"> <a href="https://goreportcard.com/report/github.com/hahwul/mzap"><img src="https://goreportcard.com/badge/github.com/hahwul/mzap"></a>
-<a href="https://twitter.com/intent/follow?screen_name=hahwul"><img src="https://img.shields.io/twitter/follow/hahwul?style=flat-square"></a>
+  <img src="https://img.shields.io/github/languages/top/hahwul/mzap?style=flat"> 
+  <img src="https://app.codacy.com/project/badge/Grade/6c7f7be26bed4673b65001153f004ddd"> 
+  <a href="https://goreportcard.com/report/github.com/hahwul/mzap"><img src="https://goreportcard.com/badge/github.com/hahwul/mzap"></a>
   <img src="https://github.com/hahwul/mzap/workflows/Go/badge.svg">
   <img src="https://github.com/hahwul/mzap/workflows/CodeQL/badge.svg">
   <img src="https://github.com/hahwul/mzap/workflows/Docker%20CI/badge.svg">
+  <a href="https://twitter.com/intent/follow?screen_name=hahwul"><img src="https://img.shields.io/twitter/follow/hahwul?style=flat&logo=twitter"></a>
+  <a href="https://github.com/hahwul"><img src="https://img.shields.io/github/stars/hahwul?style=flat&logo=github"></a></a>
 </h1>
 ⚡️ Multiple target ZAP Scanning / mzap is a tool for scanning N*N in ZAP.
 
