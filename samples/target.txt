@@ -1,2 +1,9 @@
 http://testphp.vulnweb.com/
-http://www.hahwul.com
+https://www.hahwul.com
+https://owasp.org
+https://www.zaproxy.org
+https://portswigger.net
+https://www.hackerone.com
+https://www.bugcrowd.com
+https://dalfox.hahwul.com
+https://authz0.hahwul.com

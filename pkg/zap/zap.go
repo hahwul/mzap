@@ -2,11 +2,12 @@ package zap
 
 import (
 	"bufio"
-	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"strings"
-	"sync"
+
+	logger "github.com/hahwul/volt/logger"
+	"github.com/sirupsen/logrus"
 )
 
 // ZapObject is object for zap api
@@ -30,12 +31,19 @@ const AjaxSpiderAPI = "/JSON/ajaxSpider/action/scan/"
 
 // Run is running app
 func Run(urls, apis, prefix string, options OptionsZAP) {
-	log.WithFields(log.Fields{
-		"Size of Target": len(urls),
-		"Prefix":         prefix,
-	}).Info("Start")
+	var scanType string
+	switch prefix {
+	case SpiderAPI:
+		scanType = "spider"
+	case AScanAPI:
+		scanType = "active-scan"
+	case AjaxSpiderAPI:
+		scanType = "ajax-spider"
+	}
+	log := logger.GetLogger(false).WithField("type", scanType)
+	log.Info("start")
 
-	var wg sync.WaitGroup
+	//var wg sync.WaitGroup
 	var arrayUrls []string
 
 	fo, err := os.Open(urls)
@@ -53,42 +61,38 @@ func Run(urls, apis, prefix string, options OptionsZAP) {
 		arrayUrls = append(arrayUrls, string(line))
 	}
 
-	urlChan := make(chan string)
+	//urlChan := make(chan string)
 	arrayAPIs := strings.Split(apis, ",")
-	for _, api := range arrayAPIs {
-		wg.Add(1)
-		go func() {
-			for target := range urlChan {
-				req, err := http.NewRequest("GET", api+prefix, nil)
-				if err != nil {
-					panic(err)
-				}
-				q := req.URL.Query()
-				q.Add("url", target)
-				req.URL.RawQuery = q.Encode()
-				if options.APIKey != "" {
-					req.Header.Add("X-ZAP-API-Key", options.APIKey)
-				}
+	count := 0
 
-				client := &http.Client{}
-				resp, err := client.Do(req)
+	for _, target := range arrayUrls {
+		var api = arrayAPIs[count]
+		req, err := http.NewRequest("GET", api+prefix, nil)
+		if err != nil {
+			panic(err)
+		}
+		q := req.URL.Query()
+		q.Add("url", target)
+		req.URL.RawQuery = q.Encode()
+		if options.APIKey != "" {
+			req.Header.Add("X-ZAP-API-Key", options.APIKey)
+		}
 
-				log.WithFields(log.Fields{
-					"Target":  target,
-					"ZAP API": api,
-				}).Info("Added")
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		log.WithFields(logrus.Fields{
+			"data2": target,
+			"data1": api,
+		}).Info("added")
 
-				if err != nil {
-					//panic(err)
-				}
-				defer resp.Body.Close()
-			}
-			wg.Done()
-		}()
+		if err != nil {
+			//panic(err)
+		}
+		if len(arrayAPIs)-1 > count {
+			count = count + 1
+		} else {
+			count = 0
+		}
+		defer resp.Body.Close()
 	}
-	for _, v := range arrayUrls {
-		urlChan <- v
-	}
-	close(urlChan)
-	wg.Wait()
 }

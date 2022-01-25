@@ -12,7 +12,6 @@ var stopCmd = &cobra.Command{
 	Use:   "stop (spider/ascan/ajaxspider/all)",
 	Short: "Stop Scanning",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("stop called")
 		if len(args) >= 1 {
 			if args[0] == "spider" {
 				zap.StopSpider(apiHosts, options)

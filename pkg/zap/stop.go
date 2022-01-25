@@ -1,8 +1,10 @@
 package zap
 
 import (
-	log "github.com/sirupsen/logrus"
 	"net/http"
+
+	logger "github.com/hahwul/volt/logger"
+	"github.com/sirupsen/logrus"
 )
 
 // AScanStop is stop all active scans
@@ -26,10 +28,10 @@ func Stop(api, prefix string, options OptionsZAP) {
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-
-	log.WithFields(log.Fields{
-		"ZAP API": prefix,
-	}).Info("Stoped")
+	log := logger.GetLogger(false).WithField("type", prefix)
+	log.WithFields(logrus.Fields{
+		"data1": api,
+	}).Info("stoped")
 
 	if err != nil {
 		//panic(err)
