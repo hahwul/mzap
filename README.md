@@ -2,6 +2,7 @@
   <br>
   <a href=""><img src="https://user-images.githubusercontent.com/13212227/90962250-b72e5000-e4e9-11ea-8c42-75e9d0d799be.jpg" width="100%"></a>
   <br>
+  <a href=""><img src="https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat"></a>
   <img src="https://img.shields.io/github/v/release/hahwul/mzap?style=flat"> 
   <a href="https://goreportcard.com/report/github.com/hahwul/mzap"><img src="https://goreportcard.com/badge/github.com/hahwul/mzap"></a>
   <a href="https://twitter.com/intent/follow?screen_name=hahwul"><img src="https://img.shields.io/twitter/follow/hahwul?style=flat&logo=twitter"></a>
