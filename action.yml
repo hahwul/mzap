@@ -1,0 +1,17 @@
+name: 'MZAP Env'
+description: 'Multiple target ZAP Scanning'
+branding:
+  icon: 'terminal'
+  color: 'blue'
+inputs:
+  arguments: 
+    description: 'Arguments for MZAP'
+    required: true
+outputs:
+  output: 
+    description: 'CLI Output'
+runs:
+  using: 'docker'
+  image: 'github-action/Dockerfile'
+  args:
+    - ${{ inputs.arguments }}
