@@ -14,15 +14,10 @@
 
 ## Installation
 ### go
-go1.17
 ```
 go install github.com/hahwul/mzap@latest
 ```
 
-go1.16
-```
-GO111MODULE=on go get -u github.com/hahwul/mzap
-```
 ### snapcraft
 ```
 sudo snap install mzap
@@ -82,3 +77,11 @@ Jan 26 01:12:00.108 [INFO] [spider] [http://localhost:8090] [https://authz0.hahw
 
 ![1413](https://user-images.githubusercontent.com/13212227/151013450-985ff38c-5bbf-4a58-b160-58dfebd0bf11.png)
 ![1414](https://user-images.githubusercontent.com/13212227/90961367-4be17f80-e4e3-11ea-8d9f-68d8ba5d851f.png)
+
+### Github action
+```yaml
+- name: MZAP Env
+  uses: hahwul/mzap@v1.3.0-action
+  with:
+    arguments: 'spider --urls sample/target.txt --apis'
+```
