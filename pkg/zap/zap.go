@@ -20,6 +20,9 @@ type ZapObject struct {
 	subtreeOnly bool
 }
 
+// AccessAPI is api for access url
+const AccessAPI = "/JSON/core/action/accessUrl"
+
 // SpiderAPI is api for add scan
 const SpiderAPI = "/JSON/spider/action/scan/"
 
@@ -28,6 +31,23 @@ const AScanAPI = "/JSON/ascan/action/scan/"
 
 // AjaxSpiderAPI is api for add scan
 const AjaxSpiderAPI = "/JSON/ajaxSpider/action/scan/"
+
+func callAPI(target, urls, api, prefix string, options OptionsZAP) error {
+	req, err := http.NewRequest("GET", api+prefix, nil)
+	if err != nil {
+		panic(err)
+	}
+	q := req.URL.Query()
+	q.Add("url", target)
+	req.URL.RawQuery = q.Encode()
+	if options.APIKey != "" {
+		req.Header.Add("X-ZAP-API-Key", options.APIKey)
+	}
+
+	client := &http.Client{}
+	_, err = client.Do(req)
+	return err
+}
 
 // Run is running app
 func Run(urls, apis, prefix string, options OptionsZAP) {
@@ -67,32 +87,32 @@ func Run(urls, apis, prefix string, options OptionsZAP) {
 
 	for _, target := range arrayUrls {
 		var api = arrayAPIs[count]
-		req, err := http.NewRequest("GET", api+prefix, nil)
+		err = callAPI(target, urls, api, AccessAPI, options)
 		if err != nil {
-			panic(err)
-		}
-		q := req.URL.Query()
-		q.Add("url", target)
-		req.URL.RawQuery = q.Encode()
-		if options.APIKey != "" {
-			req.Header.Add("X-ZAP-API-Key", options.APIKey)
+			log.WithFields(logrus.Fields{
+				"data2": target,
+				"data1": api,
+			}).Warn("error (access)")
 		}
 
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		log.WithFields(logrus.Fields{
-			"data2": target,
-			"data1": api,
-		}).Info("added")
-
+		err = callAPI(target, urls, api, prefix, options)
 		if err != nil {
-			//panic(err)
+			log.WithFields(logrus.Fields{
+				"data2": target,
+				"data1": api,
+			}).Warn("error (scan)")
+		} else {
+			log.WithFields(logrus.Fields{
+				"data2": target,
+				"data1": api,
+			}).Info("added")
 		}
+
 		if len(arrayAPIs)-1 > count {
 			count = count + 1
 		} else {
 			count = 0
 		}
-		defer resp.Body.Close()
+
 	}
 }

@@ -13,6 +13,10 @@ var stopCmd = &cobra.Command{
 	Short: "Stop Scanning",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) >= 1 {
+			options := zap.OptionsZAP{
+				APIKey: APIKey,
+				URLs:   URLs,
+			}
 			if args[0] == "spider" {
 				zap.StopSpider(apiHosts, options)
 			} else if args[0] == "ascan" {
