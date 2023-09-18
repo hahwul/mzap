@@ -59,7 +59,7 @@ $ mzap spider --urls sample/target.txt --apis
     ,'  /_____,
   .'____    ,'                     MZAP
         /  ,'     [ Multiple target/agent ZAP scanning ]
-       / ,'       [ v1.3.0 ] [ by @hahwul ]
+       / ,'       [ v1.3.1 ] [ by @hahwul ]
       /,'
      /'
 
@@ -81,7 +81,7 @@ Jan 26 01:12:00.108 [INFO] [spider] [http://localhost:8090] [https://authz0.hahw
 ### Github action
 ```yaml
 - name: MZAP Env
-  uses: hahwul/mzap@v1.3.0-action
+  uses: hahwul/mzap@v1.3.1-action
   with:
     arguments: 'spider --urls sample/target.txt --apis'
 ```
