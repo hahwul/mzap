@@ -177,45 +177,45 @@ module Mzap
       while index < argv.size
         arg = argv[index]
         if arg == "--config"
-          options.config = argv[index + 1]? || ""
+          options.config = parse_string_option(arg, argv[index + 1]?, true)
           index += 2
           next
         end
         if arg.starts_with?("--config=")
-          options.config = arg.split("=", 2)[1]
+          options.config = parse_string_option("--config", arg.split("=", 2)[1]?)
           index += 1
           next
         end
 
         if arg == "--apikey"
-          options.api_key = argv[index + 1]? || ""
+          options.api_key = parse_string_option(arg, argv[index + 1]?, true)
           index += 2
           next
         end
         if arg.starts_with?("--apikey=")
-          options.api_key = arg.split("=", 2)[1]
+          options.api_key = parse_string_option("--apikey", arg.split("=", 2)[1]?)
           index += 1
           next
         end
 
         if arg == "--urls"
-          options.urls = argv[index + 1]? || ""
+          options.urls = parse_string_option(arg, argv[index + 1]?, true)
           index += 2
           next
         end
         if arg.starts_with?("--urls=")
-          options.urls = arg.split("=", 2)[1]
+          options.urls = parse_string_option("--urls", arg.split("=", 2)[1]?)
           index += 1
           next
         end
 
         if arg == "--apis"
-          options.apis = argv[index + 1]? || options.apis
+          options.apis = parse_string_option(arg, argv[index + 1]?, true)
           index += 2
           next
         end
         if arg.starts_with?("--apis=")
-          options.apis = arg.split("=", 2)[1]
+          options.apis = parse_string_option("--apis", arg.split("=", 2)[1]?)
           index += 1
           next
         end
@@ -249,23 +249,23 @@ module Mzap
         end
 
         if arg == "--report-format"
-          options.report_format = argv[index + 1]? || ""
+          options.report_format = parse_string_option(arg, argv[index + 1]?, true)
           index += 2
           next
         end
         if arg.starts_with?("--report-format=")
-          options.report_format = arg.split("=", 2)[1]
+          options.report_format = parse_string_option("--report-format", arg.split("=", 2)[1]?)
           index += 1
           next
         end
 
         if arg == "--report-out"
-          options.report_out = argv[index + 1]? || ""
+          options.report_out = parse_string_option(arg, argv[index + 1]?, true)
           index += 2
           next
         end
         if arg.starts_with?("--report-out=")
-          options.report_out = arg.split("=", 2)[1]
+          options.report_out = parse_string_option("--report-out", arg.split("=", 2)[1]?)
           index += 1
           next
         end
@@ -285,6 +285,15 @@ module Mzap
       end
 
       {options, remaining}
+    end
+
+    private def self.parse_string_option(flag : String, value : String?, reject_dash_prefixed : Bool = false) : String
+      raw = value || ""
+      if raw.empty? || (reject_dash_prefixed && raw.starts_with?('-'))
+        raise ArgumentError.new("Please input value for #{flag}")
+      end
+
+      raw
     end
 
     private def self.parse_int_option(flag : String, value : String?) : Int32

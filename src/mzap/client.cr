@@ -23,8 +23,9 @@ module Mzap
     HTML_REPORT_API     = "/OTHER/core/other/htmlreport/"
     PDF_REPORT_API      = "/OTHER/core/other/pdfreport/"
 
-    private record ApiCallResult, success : Bool, body : String
+    private record ApiCallResult, success : Bool, body : String, status_code : Int32?, error_message : String?
     private record ScanJob, type : String, api_host : String, target : String, scan_id : String, status_api : String
+    private record WaitPollResult, completed : Bool, failure_reason : String?
 
     def spider(urls : String, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
       run(urls, apis, SPIDER_API, options, reporter)
@@ -39,21 +40,15 @@ module Mzap
     end
 
     def stop_spider(apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
-      normalize_api_hosts(apis).each do |api|
-        stop(api, SPIDER_STOP, options, reporter)
-      end
+      stop_all(apis, SPIDER_STOP, options, reporter)
     end
 
     def stop_active_scan(apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
-      normalize_api_hosts(apis).each do |api|
-        stop(api, ASCAN_STOP, options, reporter)
-      end
+      stop_all(apis, ASCAN_STOP, options, reporter)
     end
 
     def stop_ajax_spider(apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
-      normalize_api_hosts(apis).each do |api|
-        stop(api, AJAX_SPIDER_STOP, options, reporter)
-      end
+      stop_all(apis, AJAX_SPIDER_STOP, options, reporter)
     end
 
     def run(urls : String, apis : String, prefix : String, options : Options, reporter : Reporter = Reporter.new) : Nil
@@ -78,6 +73,9 @@ module Mzap
       scan_jobs = [] of ScanJob
       ajax_wait_hosts = [] of String
       report_targets_by_api = Hash(String, Array(String)).new { |hash, key| hash[key] = [] of String }
+      access_errors = 0
+      scan_errors = 0
+      scan_success = 0
 
       targets.each do |target|
         api_host = api_hosts[index]
@@ -85,14 +83,18 @@ module Mzap
           report_targets_by_api[api_host] << target
         end
 
-        if call_api(target, api_host, ACCESS_API, options)
-          reporter.warn(scan_type, "error (access)", api_host, target)
+        access_result = call_api(target, api_host, ACCESS_API, options)
+        unless access_result.success
+          access_errors += 1
+          reporter.warn(scan_type, "error (access) #{api_call_failure_reason(access_result)}", api_host, target)
         end
 
         scan_result = call_scan_api(target, api_host, prefix, options)
         if !scan_result.success
-          reporter.warn(scan_type, "error (scan)", api_host, target)
+          scan_errors += 1
+          reporter.warn(scan_type, "error (scan) #{api_call_failure_reason(scan_result)}", api_host, target)
         else
+          scan_success += 1
           reporter.info(scan_type, "added", api_host, target)
           if options.wait_enabled?
             case prefix
@@ -113,6 +115,8 @@ module Mzap
         end
       end
 
+      reporter.info(scan_type, "summary targets=#{targets.size} success=#{scan_success} scan_errors=#{scan_errors} access_errors=#{access_errors}")
+
       if options.wait_enabled?
         wait_for_completion(scan_jobs, ajax_wait_hosts, options, reporter)
       end
@@ -122,21 +126,16 @@ module Mzap
       end
     end
 
-    def stop(api : String, prefix : String, options : Options, reporter : Reporter = Reporter.new) : Nil
-      success = false
-      begin
-        HTTP::Client.get("#{api}#{prefix}", headers: request_headers(options)) do |response|
-          success = response.success?
-          drain_response(response)
-        end
-      rescue
-        success = false
-      end
+    def stop(api : String, prefix : String, options : Options, reporter : Reporter = Reporter.new) : Bool
+      uri = URI.parse("#{api}#{prefix}")
+      result = get_response(uri, options)
 
-      if success
+      if result.success
         reporter.info(prefix, "stopped", api)
+        true
       else
-        reporter.warn(prefix, "error (stop)", api)
+        reporter.warn(prefix, "error (stop) #{api_call_failure_reason(result)}", api)
+        false
       end
     end
 
@@ -153,9 +152,8 @@ module Mzap
       end
     end
 
-    private def call_api(target : String, api_host : String, prefix : String, options : Options) : Bool
-      result = call_scan_api(target, api_host, prefix, options)
-      !result.success
+    private def call_api(target : String, api_host : String, prefix : String, options : Options) : ApiCallResult
+      call_scan_api(target, api_host, prefix, options)
     end
 
     private def call_scan_api(target : String, api_host : String, prefix : String, options : Options) : ApiCallResult
@@ -191,14 +189,42 @@ module Mzap
       begin
         success = false
         body = ""
+        status_code : Int32? = nil
         HTTP::Client.get(uri, headers: request_headers(options)) do |response|
           success = response.success?
+          status_code = response.status_code
           body = drain_response(response)
         end
-        ApiCallResult.new(success, body)
-      rescue
-        ApiCallResult.new(false, "")
+        ApiCallResult.new(success, body, status_code, nil)
+      rescue ex : Exception
+        ApiCallResult.new(false, "", nil, ex.message || ex.class.name)
       end
+    end
+
+    private def stop_all(apis : String, prefix : String, options : Options, reporter : Reporter) : Nil
+      success_count = 0
+      failure_count = 0
+      normalize_api_hosts(apis).each do |api|
+        if stop(api, prefix, options, reporter)
+          success_count += 1
+        else
+          failure_count += 1
+        end
+      end
+      reporter.info(prefix, "summary success=#{success_count} failed=#{failure_count}")
+    end
+
+    private def api_call_failure_reason(result : ApiCallResult) : String
+      if status_code = result.status_code
+        return "(HTTP #{status_code})"
+      end
+
+      if error_message = result.error_message
+        text = error_message.strip
+        return text.empty? ? "(transport error)" : "(#{text})"
+      end
+
+      "(unknown error)"
     end
 
     private def drain_response(response : HTTP::Client::Response) : String
@@ -276,22 +302,51 @@ module Mzap
 
       reporter.info("wait", "start")
       started_at = Time.utc
+      total_scan_jobs = pending_scan_jobs.size
+      total_ajax_hosts = pending_ajax_hosts.size
+      completed_scan_jobs = 0
+      completed_ajax_hosts = 0
+      poll_failures = 0
+      timed_out = false
+      last_poll_failure = {} of String => String
 
       loop do
         pending_scan_jobs.reject! do |job|
-          if scan_job_completed?(job, options)
+          poll = scan_job_completed?(job, options)
+          if poll.completed
+            completed_scan_jobs += 1
             reporter.info("wait", "complete", job.api_host, "#{job.type}:#{job.target}")
+            last_poll_failure.delete("#{job.api_host}|#{job.type}|#{job.target}")
             true
           else
+            if reason = poll.failure_reason
+              poll_failures += 1
+              key = "#{job.api_host}|#{job.type}|#{job.target}"
+              if last_poll_failure[key]? != reason
+                reporter.warn("wait", "status check failed #{reason}", job.api_host, "#{job.type}:#{job.target}")
+                last_poll_failure[key] = reason
+              end
+            end
             false
           end
         end
 
         pending_ajax_hosts.reject! do |api_host|
-          if ajax_scan_completed?(api_host, options)
+          poll = ajax_scan_completed?(api_host, options)
+          if poll.completed
+            completed_ajax_hosts += 1
             reporter.info("wait", "complete", api_host, "ajax-spider")
+            last_poll_failure.delete("#{api_host}|ajax-spider")
             true
           else
+            if reason = poll.failure_reason
+              poll_failures += 1
+              key = "#{api_host}|ajax-spider"
+              if last_poll_failure[key]? != reason
+                reporter.warn("wait", "status check failed #{reason}", api_host, "ajax-spider")
+                last_poll_failure[key] = reason
+              end
+            end
             false
           end
         end
@@ -299,6 +354,7 @@ module Mzap
         break if pending_scan_jobs.empty? && pending_ajax_hosts.empty?
 
         if wait_timeout?(started_at, options.wait_timeout_seconds)
+          timed_out = true
           pending_scan_jobs.each do |job|
             reporter.warn("wait", "timeout", job.api_host, "#{job.type}:#{job.target}")
           end
@@ -310,6 +366,8 @@ module Mzap
 
         sleep options.wait_interval_seconds.seconds
       end
+
+      reporter.info("wait", "summary scan_completed=#{completed_scan_jobs}/#{total_scan_jobs} ajax_completed=#{completed_ajax_hosts}/#{total_ajax_hosts} poll_failures=#{poll_failures} timed_out=#{timed_out}")
     end
 
     private def wait_timeout?(started_at : Time, timeout_seconds : Int32) : Bool
@@ -317,24 +375,34 @@ module Mzap
       (Time.utc - started_at).total_seconds >= timeout_seconds
     end
 
-    private def scan_job_completed?(job : ScanJob, options : Options) : Bool
+    private def scan_job_completed?(job : ScanJob, options : Options) : WaitPollResult
       uri = URI.parse("#{job.api_host}#{job.status_api}")
       query = HTTP::Params.parse(uri.query || "")
       query["scanId"] = job.scan_id
       uri.query = query.to_s
 
       result = get_response(uri, options)
-      return false unless result.success
+      unless result.success
+        return WaitPollResult.new(false, api_call_failure_reason(result))
+      end
       status = parse_status(result.body)
-      status_indicates_done?(status)
+      if status.nil?
+        return WaitPollResult.new(false, "(missing status value)")
+      end
+      WaitPollResult.new(status_indicates_done?(status), nil)
     end
 
-    private def ajax_scan_completed?(api_host : String, options : Options) : Bool
+    private def ajax_scan_completed?(api_host : String, options : Options) : WaitPollResult
       uri = URI.parse("#{api_host}#{AJAX_STATUS}")
       result = get_response(uri, options)
-      return false unless result.success
+      unless result.success
+        return WaitPollResult.new(false, api_call_failure_reason(result))
+      end
       status = parse_status(result.body)
-      status_indicates_done?(status)
+      if status.nil?
+        return WaitPollResult.new(false, "(missing status value)")
+      end
+      WaitPollResult.new(status_indicates_done?(status), nil)
     end
 
     private def status_indicates_done?(status : String?) : Bool
@@ -352,21 +420,31 @@ module Mzap
       return if report_targets_by_api.empty?
 
       outputs = resolve_report_outputs(report_targets_by_api.keys, options)
+      saved_count = 0
+      fallback_count = 0
+      failed_count = 0
       report_targets_by_api.each do |api_host, targets|
         output_path = outputs[api_host]
         next unless output_path
 
-        if generate_filtered_report(api_host, targets, output_path, options)
+        filtered_result = generate_filtered_report(api_host, targets, output_path, options)
+        if filtered_result.success
+          saved_count += 1
           reporter.info("report", "saved", api_host, output_path)
           next
         end
 
-        if generate_core_report(api_host, output_path, options)
+        reporter.warn("report", "filtered generation failed #{api_call_failure_reason(filtered_result)}", api_host, output_path)
+        core_result = generate_core_report(api_host, output_path, options)
+        if core_result.success
+          fallback_count += 1
           reporter.warn("report", "generated without target filtering", api_host, output_path)
         else
-          reporter.warn("report", "error", api_host, output_path)
+          failed_count += 1
+          reporter.warn("report", "error #{api_call_failure_reason(core_result)}", api_host, output_path)
         end
       end
+      reporter.info("report", "summary total=#{report_targets_by_api.size} saved=#{saved_count} fallback=#{fallback_count} failed=#{failed_count}")
     end
 
     private def resolve_report_outputs(api_hosts : Array(String), options : Options) : Hash(String, String)
@@ -378,12 +456,7 @@ module Mzap
         base_output = "mzap-report-#{Time.utc.to_unix}.#{options.report_format}"
       end
 
-      expected_ext = ".#{options.report_format}"
-      ext = File.extname(base_output)
-      if ext.empty?
-        base_output = "#{base_output}#{expected_ext}"
-        ext = expected_ext
-      end
+      base_output, ext = normalize_report_output(base_output, options.report_format)
 
       if api_hosts.size == 1
         paths[api_hosts[0]] = base_output
@@ -404,6 +477,28 @@ module Mzap
       paths
     end
 
+    private def normalize_report_output(base_output : String, report_format : String) : {String, String}
+      expected_ext = ".#{report_format}"
+      ext = File.extname(base_output)
+
+      if ext.empty?
+        return {"#{base_output}#{expected_ext}", expected_ext}
+      end
+
+      if ext.downcase == expected_ext
+        return {base_output, ext}
+      end
+
+      dir = File.dirname(base_output)
+      stem = File.basename(base_output, ext)
+      normalized = if dir == "."
+                     "#{stem}#{expected_ext}"
+                   else
+                     File.join(dir, "#{stem}#{expected_ext}")
+                   end
+      {normalized, expected_ext}
+    end
+
     private def sanitize_host(value : String) : String
       normalized = value.gsub(/[^a-zA-Z0-9]+/, "-").gsub(/^-+/, "").gsub(/-+$/, "")
       normalized.empty? ? "host" : normalized
@@ -414,7 +509,7 @@ module Mzap
       targets : Array(String),
       output_path : String,
       options : Options,
-    ) : Bool
+    ) : ApiCallResult
       full_path = File.expand_path(output_path)
       report_dir = File.dirname(full_path)
       report_name = File.basename(full_path)
@@ -430,24 +525,23 @@ module Mzap
       query["display"] = "false"
       uri.query = query.to_s
 
-      result = get_response(uri, options)
-      result.success
-    rescue
-      false
+      get_response(uri, options)
+    rescue ex : Exception
+      ApiCallResult.new(false, "", nil, ex.message || ex.class.name)
     end
 
-    private def generate_core_report(api_host : String, output_path : String, options : Options) : Bool
+    private def generate_core_report(api_host : String, output_path : String, options : Options) : ApiCallResult
       endpoint = options.report_format == "pdf" ? PDF_REPORT_API : HTML_REPORT_API
       uri = URI.parse("#{api_host}#{endpoint}")
       result = get_response(uri, options)
-      return false unless result.success
+      return result unless result.success
 
       full_path = File.expand_path(output_path)
       Dir.mkdir_p(File.dirname(full_path))
       File.write(full_path, result.body)
-      true
-    rescue
-      false
+      ApiCallResult.new(true, result.body, result.status_code, nil)
+    rescue ex : Exception
+      ApiCallResult.new(false, "", nil, ex.message || ex.class.name)
     end
   end
 end

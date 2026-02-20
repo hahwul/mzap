@@ -65,6 +65,11 @@ private def stop_path(path : String) : String
   path.ends_with?("?") ? path[0...-1] : path
 end
 
+private def sanitized_host_for_report(value : String) : String
+  normalized = value.gsub(/[^a-zA-Z0-9]+/, "-").gsub(/^-+/, "").gsub(/-+$/, "")
+  normalized.empty? ? "host" : normalized
+end
+
 describe Mzap do
   it "runs spider scan with round robin host selection and API key header" do
     server1 = TestServer.new
@@ -211,7 +216,76 @@ describe Mzap do
       end
 
       stderr_io.to_s.includes?("error (scan)").should be_true
+      stderr_io.to_s.includes?("HTTP 500").should be_true
       stdout_io.to_s.includes?("added").should be_false
+    ensure
+      server.close
+    end
+  end
+
+  it "reports access endpoint failure details without aborting scan submission" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      if context.request.path == Mzap::Client::ACCESS_API
+        context.response.status_code = 500
+        context.response.print("access error")
+      else
+        context.response.status_code = 200
+        context.response.print(%({"scan":"2"}))
+      end
+    end)
+
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://access-error.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file)
+        Mzap.spider(target_file, server.url, options, reporter)
+      end
+
+      stderr_io.to_s.includes?("error (access)").should be_true
+      stderr_io.to_s.includes?("HTTP 500").should be_true
+      stdout_io.to_s.includes?("added").should be_true
+    ensure
+      server.close
+    end
+  end
+
+  it "prints scan summary counts for mixed scan results" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print("ok")
+      when Mzap::Client::SPIDER_API
+        target = HTTP::Params.parse(context.request.query || "")["url"]?
+        if target == "https://bad.test"
+          context.response.status_code = 500
+          context.response.print("scan error")
+        else
+          context.response.status_code = 200
+          context.response.print(%({"scan":"10"}))
+        end
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://ok.test", "https://bad.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file)
+        Mzap.spider(target_file, server.url, options, reporter)
+      end
+
+      stdout = stdout_io.to_s
+      stderr = stderr_io.to_s
+      stdout.includes?("summary targets=2 success=1 scan_errors=1 access_errors=0").should be_true
+      stderr.includes?("error (scan)").should be_true
+      stderr.includes?("HTTP 500").should be_true
     ensure
       server.close
     end
@@ -231,9 +305,36 @@ describe Mzap do
       Mzap.stop_spider(server.url, options, reporter)
 
       stderr_io.to_s.includes?("error (stop)").should be_true
+      stderr_io.to_s.includes?("HTTP 500").should be_true
       stdout_io.to_s.includes?("stopped").should be_false
+      stdout_io.to_s.includes?("summary success=0 failed=1").should be_true
     ensure
       server.close
+    end
+  end
+
+  it "prints stop summary for mixed stop outcomes" do
+    server_success = TestServer.new
+    server_fail = TestServer.new(->(context : HTTP::Server::Context) do
+      context.response.status_code = 500
+      context.response.print("error")
+    end)
+
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      options = Mzap::Options.new("", "")
+      Mzap.stop_spider("#{server_success.url},#{server_fail.url}", options, reporter)
+
+      stdout = stdout_io.to_s
+      stderr = stderr_io.to_s
+      stdout.includes?("summary success=1 failed=1").should be_true
+      stderr.includes?("error (stop)").should be_true
+      stderr.includes?("HTTP 500").should be_true
+    ensure
+      server_success.close
+      server_fail.close
     end
   end
 
@@ -313,6 +414,80 @@ describe Mzap do
     end
   end
 
+  it "warns timeout when wait exceeds timeout seconds" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"3"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"1"}))
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://timeout.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file, true, 1, 1)
+        Mzap.spider(target_file, server.url, options, reporter)
+      end
+
+      stderr = stderr_io.to_s
+      stderr.includes?("[wait]").should be_true
+      stderr.includes?("timeout").should be_true
+    ensure
+      server.close
+    end
+  end
+
+  it "logs wait status check failure reason and wait summary" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"6"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 500
+        context.response.print("status error")
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://wait-error.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file, true, 1, 1)
+        Mzap.spider(target_file, server.url, options, reporter)
+      end
+
+      stderr = stderr_io.to_s
+      stdout = stdout_io.to_s
+      stderr.includes?("status check failed (HTTP 500)").should be_true
+      stderr.includes?("timeout").should be_true
+      stdout.includes?("scan_completed=0/1").should be_true
+      stdout.includes?("timed_out=true").should be_true
+      stdout.includes?("poll_failures=").should be_true
+    ensure
+      server.close
+    end
+  end
+
   it "falls back to core html report when reports add-on endpoint is unavailable" do
     server = TestServer.new(->(context : HTTP::Server::Context) do
       case context.request.path
@@ -339,7 +514,9 @@ describe Mzap do
 
     report_path = "#{File.tempname("mzap-report")}.html"
     begin
-      reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://fallback.test"]) do |target_file|
         options = Mzap::Options.new("", target_file, true, 1, 10, "html", report_path)
         Mzap.spider(target_file, server.url, options, reporter)
@@ -351,9 +528,155 @@ describe Mzap do
       paths.includes?(Mzap::Client::HTML_REPORT_API).should be_true
       File.exists?(report_path).should be_true
       File.read(report_path).should eq("<html>fallback report</html>")
+      reporter_output = stdout_io.to_s
+      reporter_output.includes?("summary total=1 saved=0 fallback=1 failed=0").should be_true
     ensure
       File.delete(report_path) if File.exists?(report_path)
       server.close
+    end
+  end
+
+  it "logs report failure reasons and report summary when all report endpoints fail" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"12"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"100"}))
+      when Mzap::Client::REPORT_GENERATE_API
+        context.response.status_code = 500
+        context.response.print("filtered fail")
+      when Mzap::Client::HTML_REPORT_API
+        context.response.status_code = 500
+        context.response.print("core fail")
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    report_path = "#{File.tempname("mzap-report")}.html"
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://report-fail.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file, true, 1, 10, "html", report_path)
+        Mzap.spider(target_file, server.url, options, reporter)
+      end
+
+      stderr = stderr_io.to_s
+      stdout = stdout_io.to_s
+      stderr.includes?("filtered generation failed (HTTP 500)").should be_true
+      stderr.includes?("error (HTTP 500)").should be_true
+      stdout.includes?("summary total=1 saved=0 fallback=0 failed=1").should be_true
+    ensure
+      File.delete(report_path) if File.exists?(report_path)
+      server.close
+    end
+  end
+
+  it "normalizes report output extension to report format" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"9"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"100"}))
+      when Mzap::Client::REPORT_GENERATE_API
+        context.response.status_code = 200
+        context.response.print(%({"result":"ok"}))
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    report_path = "#{File.tempname("mzap-report")}.html"
+    begin
+      reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
+      with_target_file(["https://ext.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file, true, 1, 10, "pdf", report_path)
+        Mzap.spider(target_file, server.url, options, reporter)
+      end
+
+      report_request = server.requests.find { |request| request.path == Mzap::Client::REPORT_GENERATE_API }
+      report_request.should_not be_nil
+      params = HTTP::Params.parse(report_request.not_nil!.query || "")
+      full_path = File.expand_path(report_path)
+      expected_name = "#{File.basename(full_path, File.extname(full_path))}.pdf"
+
+      params["template"].should eq("traditional-pdf")
+      params["reportFileName"].should eq(expected_name)
+      params["reportDir"].should eq(File.dirname(full_path))
+    ensure
+      server.close
+    end
+  end
+
+  it "generates host-specific report names for multiple api hosts" do
+    handler = ->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"11"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"100"}))
+      when Mzap::Client::REPORT_GENERATE_API
+        context.response.status_code = 200
+        context.response.print(%({"result":"ok"}))
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end
+    server1 = TestServer.new(handler)
+    server2 = TestServer.new(handler)
+
+    report_path = "#{File.tempname("mzap-report")}.html"
+    begin
+      reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
+      with_target_file(["https://one.test", "https://two.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file, true, 1, 10, "pdf", report_path)
+        Mzap.spider(target_file, "#{server1.url},#{server2.url}", options, reporter)
+      end
+
+      full_path = File.expand_path(report_path)
+      stem = File.basename(full_path, File.extname(full_path))
+      expected1 = "#{stem}-#{sanitized_host_for_report(server1.url)}.pdf"
+      expected2 = "#{stem}-#{sanitized_host_for_report(server2.url)}.pdf"
+      expected_dir = File.dirname(full_path)
+
+      report_request1 = server1.requests.find { |request| request.path == Mzap::Client::REPORT_GENERATE_API }
+      report_request2 = server2.requests.find { |request| request.path == Mzap::Client::REPORT_GENERATE_API }
+      report_request1.should_not be_nil
+      report_request2.should_not be_nil
+
+      params1 = HTTP::Params.parse(report_request1.not_nil!.query || "")
+      params2 = HTTP::Params.parse(report_request2.not_nil!.query || "")
+      params1["template"].should eq("traditional-pdf")
+      params2["template"].should eq("traditional-pdf")
+      params1["reportFileName"].should eq(expected1)
+      params2["reportFileName"].should eq(expected2)
+      params1["reportDir"].should eq(expected_dir)
+      params2["reportDir"].should eq(expected_dir)
+    ensure
+      server1.close
+      server2.close
     end
   end
 end
@@ -475,6 +798,59 @@ describe Mzap::CLI do
     code = Mzap::CLI.run(["version", "--unknown"], stdout_io, stderr_io)
     code.should eq(1)
     stderr_io.to_s.includes?("Unknown option: --unknown").should be_true
+  end
+
+  it "accepts dash-prefixed option value with equals syntax" do
+    server = TestServer.new
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+
+    begin
+      code = Mzap::CLI.run(["stop", "spider", "--apis", server.url, "--apikey=-dash-key"], stdout_io, stderr_io)
+      code.should eq(0)
+
+      requests = server.requests
+      requests.size.should eq(1)
+      requests[0].api_key.should eq("-dash-key")
+    ensure
+      server.close
+    end
+  end
+
+  it "returns error when string option value is missing" do
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+
+    code = Mzap::CLI.run(["spider", "--urls", "--apis", "http://localhost:8090"], stdout_io, stderr_io)
+    code.should eq(1)
+    stderr_io.to_s.includes?("Please input value for --urls").should be_true
+  end
+
+  it "returns error when string option equals syntax has empty value" do
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+
+    code = Mzap::CLI.run(["spider", "--urls=", "--apis", "http://localhost:8090"], stdout_io, stderr_io)
+    code.should eq(1)
+    stderr_io.to_s.includes?("Please input value for --urls").should be_true
+  end
+
+  it "returns error for invalid wait interval integer" do
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+
+    code = Mzap::CLI.run(["version", "--wait-interval", "abc"], stdout_io, stderr_io)
+    code.should eq(1)
+    stderr_io.to_s.includes?("Invalid integer for --wait-interval").should be_true
+  end
+
+  it "returns error when wait timeout value is missing" do
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+
+    code = Mzap::CLI.run(["version", "--wait-timeout"], stdout_io, stderr_io)
+    code.should eq(1)
+    stderr_io.to_s.includes?("Please input value for --wait-timeout").should be_true
   end
 
   it "returns error when report output is set without report format" do
