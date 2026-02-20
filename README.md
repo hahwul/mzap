@@ -46,8 +46,18 @@ Flags:
       --apis string     ZAP API Host(s) address
                         e.g --apis http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
       --config string   config file (default is $HOME/.mzap.yaml)
+      --report-format   Report format after scan complete (html/pdf)
+      --report-out      Output report path (default: mzap-report-<timestamp>.<ext>)
+      --wait            Wait until initiated scans complete
+      --wait-interval   Poll interval in seconds for waiting (default 2)
+      --wait-timeout    Timeout seconds for waiting (default 0: no timeout)
   -h, --help            help for mzap
       --urls string     URL list file / e.g --urls hosts.txt
+```
+
+```bash
+# wait until spider scan is complete, then export report
+mzap spider --urls sample/target.txt --apis http://localhost:8090 --wait --report-format html --report-out reports/mzap.html
 ```
 
 ```
