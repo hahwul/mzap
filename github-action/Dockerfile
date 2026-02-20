@@ -1,13 +1,15 @@
-FROM crystallang/crystal:1.19.1 AS builder
+ARG CRYSTAL_VERSION=1.19.1
+
+FROM crystallang/crystal:${CRYSTAL_VERSION} AS builder
 
 WORKDIR /app
-COPY shard.yml ./
-RUN shards install --production
+COPY shard.yml shard.lock ./
+RUN shards install --production --frozen
 COPY src ./src
 COPY samples ./samples
 RUN crystal build --release src/mzap_cli.cr -o /app/bin/mzap
 
-FROM crystallang/crystal:1.19.1
+FROM crystallang/crystal:${CRYSTAL_VERSION}
 
 WORKDIR /app
 COPY --from=builder /app/bin/mzap /app/mzap

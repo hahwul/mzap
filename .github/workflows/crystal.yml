@@ -1,10 +1,13 @@
-name: Crystal
+name: Crystal CI
 
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+
+env:
+  CRYSTAL_VERSION: 1.19.1
 
 jobs:
   build:
@@ -17,11 +20,21 @@ jobs:
       - name: Install Crystal
         uses: crystal-lang/install-crystal@v1
         with:
-          crystal: 1.19.1
+          crystal: ${{ env.CRYSTAL_VERSION }}
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib
+            ~/.cache/shards
+          key: ${{ runner.os }}-shards-${{ hashFiles('shard.yml', 'shard.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-shards-
 
       - name: Install dependencies
         run: |
-          shards install
+          shards install --frozen
 
       - name: Build
         run: crystal build --release src/mzap_cli.cr -o bin/mzap
