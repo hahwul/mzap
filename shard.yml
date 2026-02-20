@@ -1,0 +1,13 @@
+name: mzap
+version: 2.0.0
+
+authors:
+  - hahwul <hahwul@gmail.com>
+
+targets:
+  mzap:
+    main: src/mzap_cli.cr
+
+crystal: '>= 1.19.1'
+
+license: MIT

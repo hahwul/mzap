@@ -1,4 +1,4 @@
-name: Go
+name: Crystal
 
 on:
   push:
@@ -7,33 +7,24 @@ on:
     branches: [ master ]
 
 jobs:
-
   build:
-    name: Build
+    name: Build and Test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go: ["1.17", "1.18", "1.19", "1.20"]
     steps:
-      - name: Set up Go ${{ matrix.go }}
-        uses: actions/setup-go@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
         with:
-          go-version: ${{ matrix.go }}
-        id: go
+          crystal: 1.19.1
 
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
-
-      - name: Get dependencies
+      - name: Install dependencies
         run: |
-          go get -v -t -d ./...
-          if [ -f Gopkg.toml ]; then
-              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-              dep ensure
-          fi
+          shards install
 
       - name: Build
-        run: go build -v .
+        run: crystal build --release src/mzap_cli.cr -o bin/mzap
 
       - name: Test
-        run: go test -v .
+        run: crystal spec

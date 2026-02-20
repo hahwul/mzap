@@ -1,0 +1,7 @@
+.git
+.github
+bin
+spec
+CODE_OF_CONDUCT.md
+SECURITY.md
+*.dwarf
