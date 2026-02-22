@@ -33,26 +33,26 @@ brew install mzap
 Usage:
   mzap [command]
 
-Available Commands:
-  ajaxspider  Add AjaxSpider ZAP
-  ascan       Add ActiveScan ZAP
-  help        Help about any command
-  spider      Add ZAP spider
-  stop        Stop Scanning
-  version     Show version
+Subcommands:
+  ajaxspider  Start Ajax Spider scans in ZAP
+  ascan       Start Active Scan jobs in ZAP
+  help        Show help for a command
+  spider      Start Spider scans in ZAP
+  stop        Stop running scans
+  version     Show mzap version
 
 Flags:
-      --apikey string   ZAP API Key / if you disable apikey, not use this option
-      --apis string     ZAP API Host(s) address
-                        e.g --apis http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
-      --config string   config file (default is $HOME/.mzap.yaml)
-      --report-format   Report format after scan complete (html/pdf)
-      --report-out      Output report path (default: mzap-report-<timestamp>.<ext>)
-      --wait            Wait until initiated scans complete
-      --wait-interval   Poll interval in seconds for waiting (default 2)
-      --wait-timeout    Timeout seconds for waiting (default 0: no timeout)
-  -h, --help            help for mzap
-      --urls string     URL list file / e.g --urls hosts.txt
+      --apikey string        ZAP API key (omit when API key auth is disabled)
+      --apis string          Comma-separated ZAP API host URLs
+                             e.g. --apis http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
+      --config string        Config file path (default: $HOME/.mzap.yaml)
+      --report-format        Report format after scan completion (html/pdf)
+      --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
+      --wait                 Wait for initiated scans to complete
+      --wait-interval        Poll interval in seconds while waiting (default 2)
+      --wait-timeout         Wait timeout in seconds (default 0: no timeout)
+      -h, --help             Show help for mzap
+      --urls string          Path to URL list file (e.g. --urls hosts.txt)
 ```
 
 ```bash
