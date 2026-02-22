@@ -1,4 +1,5 @@
 require "./spec_helper"
+require "file_utils"
 require "http/params"
 require "http/server"
 
@@ -58,6 +59,24 @@ private def with_target_file(lines : Array(String), &block : String ->)
     yield path
   ensure
     File.delete(path) if File.exists?(path)
+  end
+end
+
+private def with_temp_home(&block : String ->)
+  temp_home = File.tempname("mzap-home")
+  Dir.mkdir_p(temp_home)
+  previous_home = ENV["HOME"]?
+  ENV["HOME"] = temp_home
+
+  begin
+    yield temp_home
+  ensure
+    if previous_home
+      ENV["HOME"] = previous_home
+    else
+      ENV.delete("HOME")
+    end
+    FileUtils.rm_rf(temp_home)
   end
 end
 
@@ -681,6 +700,94 @@ describe Mzap do
   end
 end
 
+describe Mzap::Config do
+  it "uses ~/.config/mzap/config.toml as the default config path" do
+    with_temp_home do |temp_home|
+      config_path = File.join(temp_home, ".config", "mzap", "config.toml")
+      Dir.mkdir_p(File.dirname(config_path))
+      File.write(config_path, "sample = true\n")
+
+      output = IO::Memory.new
+      Mzap::Config.show_config_notice("", output)
+
+      output.to_s.includes?("Using config file: #{config_path}").should be_true
+    end
+  end
+
+  it "falls back to legacy ~/.mzap.yaml when new default path is missing" do
+    with_temp_home do |temp_home|
+      legacy_path = File.join(temp_home, ".mzap.yaml")
+      File.write(legacy_path, "sample: true\n")
+
+      output = IO::Memory.new
+      Mzap::Config.show_config_notice("", output)
+
+      output.to_s.includes?("Using config file: #{legacy_path}").should be_true
+    end
+  end
+
+  it "prefers ~/.config/mzap/config.toml over legacy config files" do
+    with_temp_home do |temp_home|
+      preferred_path = File.join(temp_home, ".config", "mzap", "config.toml")
+      legacy_path = File.join(temp_home, ".mzap.yaml")
+      Dir.mkdir_p(File.dirname(preferred_path))
+      File.write(preferred_path, "sample = true\n")
+      File.write(legacy_path, "sample: true\n")
+
+      output = IO::Memory.new
+      Mzap::Config.show_config_notice("", output)
+
+      text = output.to_s
+      text.includes?("Using config file: #{preferred_path}").should be_true
+      text.includes?("Using config file: #{legacy_path}").should be_false
+    end
+  end
+
+  it "loads runtime options from TOML config" do
+    with_temp_home do |temp_home|
+      config_path = File.join(temp_home, ".config", "mzap", "config.toml")
+      Dir.mkdir_p(File.dirname(config_path))
+      File.write(
+        config_path,
+        <<-TOML
+        [mzap]
+        apis = ["http://127.0.0.1:8090", "http://127.0.0.2:8090"]
+        apikey = "cfg-key"
+        urls = "samples/target.txt"
+        wait = true
+        wait_interval = 3
+        wait_timeout = 20
+        report_format = "html"
+        report_out = "reports/mzap.html"
+        TOML
+      )
+
+      loaded = Mzap::Config.load_options("")
+      loaded.path.should eq(config_path)
+      loaded.apis.should eq("http://127.0.0.1:8090,http://127.0.0.2:8090")
+      loaded.api_key.should eq("cfg-key")
+      loaded.urls.should eq("samples/target.txt")
+      loaded.wait.should eq(true)
+      loaded.wait_interval_seconds.should eq(3)
+      loaded.wait_timeout_seconds.should eq(20)
+      loaded.report_format.should eq("html")
+      loaded.report_out.should eq("reports/mzap.html")
+    end
+  end
+
+  it "raises an error for invalid TOML option types" do
+    with_temp_home do |temp_home|
+      config_path = File.join(temp_home, ".config", "mzap", "config.toml")
+      Dir.mkdir_p(File.dirname(config_path))
+      File.write(config_path, "wait = \"yes\"\n")
+
+      expect_raises(ArgumentError, /Invalid TOML boolean/) do
+        Mzap::Config.load_options("")
+      end
+    end
+  end
+end
+
 describe Mzap::CLI do
   it "prints version and banner" do
     stdout_io = IO::Memory.new
@@ -722,6 +829,76 @@ describe Mzap::CLI do
       stdout_io.to_s.includes?("Using config file: #{config_path}").should be_true
     ensure
       File.delete(config_path) if File.exists?(config_path)
+    end
+  end
+
+  it "loads API host and key from default TOML config" do
+    server = TestServer.new
+
+    begin
+      with_temp_home do |temp_home|
+        config_path = File.join(temp_home, ".config", "mzap", "config.toml")
+        Dir.mkdir_p(File.dirname(config_path))
+        File.write(
+          config_path,
+          <<-TOML
+          [mzap]
+          apis = "#{server.url}"
+          apikey = "cfg-key"
+          TOML
+        )
+
+        stdout_io = IO::Memory.new
+        stderr_io = IO::Memory.new
+        code = Mzap::CLI.run(["stop", "spider"], stdout_io, stderr_io)
+        code.should eq(0)
+
+        requests = server.requests
+        requests.size.should eq(1)
+        requests[0].api_key.should eq("cfg-key")
+        stdout_io.to_s.includes?("Using config file: #{config_path}").should be_true
+        stderr_io.to_s.includes?("error (stop)").should be_false
+      end
+    ensure
+      server.close
+    end
+  end
+
+  it "prefers CLI flags over TOML config values" do
+    config_server = TestServer.new
+    cli_server = TestServer.new
+
+    begin
+      with_temp_home do |temp_home|
+        config_path = File.join(temp_home, ".config", "mzap", "config.toml")
+        Dir.mkdir_p(File.dirname(config_path))
+        File.write(
+          config_path,
+          <<-TOML
+          [mzap]
+          apis = "#{config_server.url}"
+          apikey = "cfg-key"
+          TOML
+        )
+
+        stdout_io = IO::Memory.new
+        stderr_io = IO::Memory.new
+        code = Mzap::CLI.run(
+          ["stop", "spider", "--apis", cli_server.url, "--apikey", "cli-key"],
+          stdout_io,
+          stderr_io
+        )
+        code.should eq(0)
+
+        config_server.requests.should be_empty
+        cli_requests = cli_server.requests
+        cli_requests.size.should eq(1)
+        cli_requests[0].api_key.should eq("cli-key")
+        stderr_io.to_s.includes?("error (stop)").should be_false
+      end
+    ensure
+      config_server.close
+      cli_server.close
     end
   end
 

@@ -45,7 +45,7 @@ Flags:
       --apikey string        ZAP API key (omit when API key auth is disabled)
       --apis string          Comma-separated ZAP API host URLs
                              e.g. --apis http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
-      --config string        Config file path (default: $HOME/.mzap.yaml)
+      --config string        Config file path (TOML supported; default: $HOME/.config/mzap/config.toml)
       --report-format        Report format after scan completion (html/pdf)
       --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
       --wait                 Wait for initiated scans to complete
@@ -53,6 +53,21 @@ Flags:
       --wait-timeout         Wait timeout in seconds (default 0: no timeout)
       -h, --help             Show help for mzap
       --urls string          Path to URL list file (e.g. --urls hosts.txt)
+```
+
+`mzap` automatically loads config from `$HOME/.config/mzap/config.toml` when present.
+CLI flags override values from config.
+
+```toml
+[mzap]
+apis = ["http://localhost:8090", "http://192.168.0.4:8090"]
+apikey = "your-zap-api-key"
+urls = "samples/target.txt"
+wait = true
+wait_interval = 2
+wait_timeout = 0
+report_format = "html"
+report_out = "reports/mzap.html"
 ```
 
 ```bash

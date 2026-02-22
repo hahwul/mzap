@@ -26,6 +26,30 @@ module Mzap
       end
     end
 
+    private struct ProvidedOptions
+      property config : Bool
+      property urls : Bool
+      property apis : Bool
+      property api_key : Bool
+      property wait : Bool
+      property wait_interval_seconds : Bool
+      property wait_timeout_seconds : Bool
+      property report_format : Bool
+      property report_out : Bool
+
+      def initialize
+        @config = false
+        @urls = false
+        @apis = false
+        @api_key = false
+        @wait = false
+        @wait_interval_seconds = false
+        @wait_timeout_seconds = false
+        @report_format = false
+        @report_out = false
+      end
+    end
+
     HELP_TEXT = <<-TEXT
     Usage:
       mzap [command]
@@ -42,7 +66,7 @@ module Mzap
       --apikey string        ZAP API key (omit when API key auth is disabled)
       --apis string          Comma-separated ZAP API host URLs
                              e.g. --apis http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
-      --config string        Config file path (default: $HOME/.mzap.yaml)
+      --config string        Config file path (TOML supported; default: $HOME/.config/mzap/config.toml)
       --report-format        Report format after scan completion (html/pdf)
       --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
       --wait                 Wait for initiated scans to complete
@@ -55,12 +79,25 @@ module Mzap
     def self.run(argv : Array(String) = ARGV, stdout_io : IO = STDOUT, stderr_io : IO = STDERR) : Int32
       Banner.show(stderr_io)
 
-      options, args = begin
+      options, args, provided_options = begin
         parse_global_options(argv)
       rescue ex : ArgumentError
         stderr_io.puts ex.message || ex.to_s
         return 1
       end
+
+      scan_commands = {"spider", "ajaxspider", "ascan"}
+      command = args.empty? ? "" : args[0]
+      scan_command = scan_commands.includes?(command)
+
+      begin
+        config_options = Config.load_options(options.config)
+        options = apply_config_options(options, config_options, provided_options, scan_command)
+      rescue ex : ArgumentError
+        stderr_io.puts ex.message || ex.to_s
+        return 1
+      end
+
       Config.show_config_notice(options.config, stdout_io)
 
       if options.help || args.empty?
@@ -68,10 +105,8 @@ module Mzap
         return 0
       end
 
-      command = args[0]
       command_args = args.size > 1 ? args[1..] : [] of String
       reporter = Reporter.new(stdout_io, stderr_io)
-      scan_commands = {"spider", "ajaxspider", "ascan"}
       report_format = options.report_format.downcase
 
       if options.wait_interval_seconds <= 0
@@ -169,8 +204,9 @@ module Mzap
       0
     end
 
-    private def self.parse_global_options(argv : Array(String)) : {GlobalOptions, Array(String)}
+    private def self.parse_global_options(argv : Array(String)) : {GlobalOptions, Array(String), ProvidedOptions}
       options = GlobalOptions.new
+      provided = ProvidedOptions.new
       remaining = [] of String
 
       index = 0
@@ -178,94 +214,111 @@ module Mzap
         arg = argv[index]
         if arg == "--config"
           options.config = parse_string_option(arg, argv[index + 1]?, true)
+          provided.config = true
           index += 2
           next
         end
         if arg.starts_with?("--config=")
           options.config = parse_string_option("--config", arg.split("=", 2)[1]?)
+          provided.config = true
           index += 1
           next
         end
 
         if arg == "--apikey"
           options.api_key = parse_string_option(arg, argv[index + 1]?, true)
+          provided.api_key = true
           index += 2
           next
         end
         if arg.starts_with?("--apikey=")
           options.api_key = parse_string_option("--apikey", arg.split("=", 2)[1]?)
+          provided.api_key = true
           index += 1
           next
         end
 
         if arg == "--urls"
           options.urls = parse_string_option(arg, argv[index + 1]?, true)
+          provided.urls = true
           index += 2
           next
         end
         if arg.starts_with?("--urls=")
           options.urls = parse_string_option("--urls", arg.split("=", 2)[1]?)
+          provided.urls = true
           index += 1
           next
         end
 
         if arg == "--apis"
           options.apis = parse_string_option(arg, argv[index + 1]?, true)
+          provided.apis = true
           index += 2
           next
         end
         if arg.starts_with?("--apis=")
           options.apis = parse_string_option("--apis", arg.split("=", 2)[1]?)
+          provided.apis = true
           index += 1
           next
         end
 
         if arg == "--wait"
           options.wait = true
+          provided.wait = true
           index += 1
           next
         end
 
         if arg == "--wait-interval"
           options.wait_interval_seconds = parse_int_option(arg, argv[index + 1]?)
+          provided.wait_interval_seconds = true
           index += 2
           next
         end
         if arg.starts_with?("--wait-interval=")
           options.wait_interval_seconds = parse_int_option("--wait-interval", arg.split("=", 2)[1]?)
+          provided.wait_interval_seconds = true
           index += 1
           next
         end
 
         if arg == "--wait-timeout"
           options.wait_timeout_seconds = parse_int_option(arg, argv[index + 1]?)
+          provided.wait_timeout_seconds = true
           index += 2
           next
         end
         if arg.starts_with?("--wait-timeout=")
           options.wait_timeout_seconds = parse_int_option("--wait-timeout", arg.split("=", 2)[1]?)
+          provided.wait_timeout_seconds = true
           index += 1
           next
         end
 
         if arg == "--report-format"
           options.report_format = parse_string_option(arg, argv[index + 1]?, true)
+          provided.report_format = true
           index += 2
           next
         end
         if arg.starts_with?("--report-format=")
           options.report_format = parse_string_option("--report-format", arg.split("=", 2)[1]?)
+          provided.report_format = true
           index += 1
           next
         end
 
         if arg == "--report-out"
           options.report_out = parse_string_option(arg, argv[index + 1]?, true)
+          provided.report_out = true
           index += 2
           next
         end
         if arg.starts_with?("--report-out=")
           options.report_out = parse_string_option("--report-out", arg.split("=", 2)[1]?)
+          provided.report_out = true
           index += 1
           next
         end
@@ -284,7 +337,74 @@ module Mzap
         index += 1
       end
 
-      {options, remaining}
+      {options, remaining, provided}
+    end
+
+    private def self.apply_config_options(
+      options : GlobalOptions,
+      config_options : Config::FileOptions,
+      provided_options : ProvidedOptions,
+      scan_command : Bool
+    ) : GlobalOptions
+      updated = options
+
+      unless provided_options.config
+        if value = config_options.path
+          updated.config = value
+        end
+      end
+
+      unless provided_options.urls
+        if value = config_options.urls
+          updated.urls = value
+        end
+      end
+
+      unless provided_options.apis
+        if value = config_options.apis
+          updated.apis = value
+        end
+      end
+
+      unless provided_options.api_key
+        if value = config_options.api_key
+          updated.api_key = value
+        end
+      end
+
+      return updated unless scan_command
+
+      unless provided_options.wait
+        if value = config_options.wait
+          updated.wait = value
+        end
+      end
+
+      unless provided_options.wait_interval_seconds
+        if value = config_options.wait_interval_seconds
+          updated.wait_interval_seconds = value
+        end
+      end
+
+      unless provided_options.wait_timeout_seconds
+        if value = config_options.wait_timeout_seconds
+          updated.wait_timeout_seconds = value
+        end
+      end
+
+      unless provided_options.report_format
+        if value = config_options.report_format
+          updated.report_format = value
+        end
+      end
+
+      unless provided_options.report_out
+        if value = config_options.report_out
+          updated.report_out = value
+        end
+      end
+
+      updated
     end
 
     private def self.parse_string_option(flag : String, value : String?, reject_dash_prefixed : Bool = false) : String
