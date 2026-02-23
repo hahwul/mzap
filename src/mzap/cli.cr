@@ -212,57 +212,6 @@ module Mzap
       index = 0
       while index < argv.size
         arg = argv[index]
-        if arg == "--config"
-          options.config = parse_string_option(arg, argv[index + 1]?, true)
-          provided.config = true
-          index += 2
-          next
-        end
-        if arg.starts_with?("--config=")
-          options.config = parse_string_option("--config", arg.split("=", 2)[1]?)
-          provided.config = true
-          index += 1
-          next
-        end
-
-        if arg == "--apikey"
-          options.api_key = parse_string_option(arg, argv[index + 1]?, true)
-          provided.api_key = true
-          index += 2
-          next
-        end
-        if arg.starts_with?("--apikey=")
-          options.api_key = parse_string_option("--apikey", arg.split("=", 2)[1]?)
-          provided.api_key = true
-          index += 1
-          next
-        end
-
-        if arg == "--urls"
-          options.urls = parse_string_option(arg, argv[index + 1]?, true)
-          provided.urls = true
-          index += 2
-          next
-        end
-        if arg.starts_with?("--urls=")
-          options.urls = parse_string_option("--urls", arg.split("=", 2)[1]?)
-          provided.urls = true
-          index += 1
-          next
-        end
-
-        if arg == "--apis"
-          options.apis = parse_string_option(arg, argv[index + 1]?, true)
-          provided.apis = true
-          index += 2
-          next
-        end
-        if arg.starts_with?("--apis=")
-          options.apis = parse_string_option("--apis", arg.split("=", 2)[1]?)
-          provided.apis = true
-          index += 1
-          next
-        end
 
         if arg == "--wait"
           options.wait = true
@@ -271,60 +220,28 @@ module Mzap
           next
         end
 
-        if arg == "--wait-interval"
-          options.wait_interval_seconds = parse_int_option(arg, argv[index + 1]?)
-          provided.wait_interval_seconds = true
-          index += 2
-          next
-        end
-        if arg.starts_with?("--wait-interval=")
-          options.wait_interval_seconds = parse_int_option("--wait-interval", arg.split("=", 2)[1]?)
-          provided.wait_interval_seconds = true
-          index += 1
-          next
-        end
-
-        if arg == "--wait-timeout"
-          options.wait_timeout_seconds = parse_int_option(arg, argv[index + 1]?)
-          provided.wait_timeout_seconds = true
-          index += 2
-          next
-        end
-        if arg.starts_with?("--wait-timeout=")
-          options.wait_timeout_seconds = parse_int_option("--wait-timeout", arg.split("=", 2)[1]?)
-          provided.wait_timeout_seconds = true
-          index += 1
-          next
-        end
-
-        if arg == "--report-format"
-          options.report_format = parse_string_option(arg, argv[index + 1]?, true)
-          provided.report_format = true
-          index += 2
-          next
-        end
-        if arg.starts_with?("--report-format=")
-          options.report_format = parse_string_option("--report-format", arg.split("=", 2)[1]?)
-          provided.report_format = true
-          index += 1
-          next
-        end
-
-        if arg == "--report-out"
-          options.report_out = parse_string_option(arg, argv[index + 1]?, true)
-          provided.report_out = true
-          index += 2
-          next
-        end
-        if arg.starts_with?("--report-out=")
-          options.report_out = parse_string_option("--report-out", arg.split("=", 2)[1]?)
-          provided.report_out = true
-          index += 1
-          next
-        end
-
         if arg == "-h" || arg == "--help"
           options.help = true
+          index += 1
+          next
+        end
+
+        if string_flag?(arg)
+          value = parse_string_option(arg, argv[index + 1]?, true)
+          options, provided = assign_string_option(options, provided, arg, value)
+          index += 2
+          next
+        end
+
+        if int_flag?(arg)
+          value = parse_int_option(arg, argv[index + 1]?)
+          options, provided = assign_int_option(options, provided, arg, value)
+          index += 2
+          next
+        end
+
+        parsed_equals, options, provided = parse_equals_option(arg, options, provided)
+        if parsed_equals
           index += 1
           next
         end
@@ -405,6 +322,101 @@ module Mzap
       end
 
       updated
+    end
+
+    private def self.string_flag?(arg : String) : Bool
+      {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out"}.includes?(arg)
+    end
+
+    private def self.int_flag?(arg : String) : Bool
+      {"--wait-interval", "--wait-timeout"}.includes?(arg)
+    end
+
+    private def self.parse_equals_option(
+      arg : String,
+      options : GlobalOptions,
+      provided : ProvidedOptions
+    ) : {Bool, GlobalOptions, ProvidedOptions}
+      pair = split_equals_option(arg)
+      return {false, options, provided} unless pair
+
+      flag, raw_value = pair.not_nil!
+      if string_flag?(flag)
+        value = parse_string_option(flag, raw_value)
+        options, provided = assign_string_option(options, provided, flag, value)
+        return {true, options, provided}
+      end
+
+      if int_flag?(flag)
+        value = parse_int_option(flag, raw_value)
+        options, provided = assign_int_option(options, provided, flag, value)
+        return {true, options, provided}
+      end
+
+      {false, options, provided}
+    end
+
+    private def self.split_equals_option(arg : String) : {String, String?}?
+      return nil unless arg.starts_with?("--")
+
+      index = arg.index('=')
+      return nil unless index
+
+      flag = arg[0...index]
+      raw_value = arg[(index + 1)..-1]?
+      {flag, raw_value}
+    end
+
+    private def self.assign_string_option(
+      options : GlobalOptions,
+      provided : ProvidedOptions,
+      flag : String,
+      value : String
+    ) : {GlobalOptions, ProvidedOptions}
+      case flag
+      when "--config"
+        options.config = value
+        provided.config = true
+      when "--apikey"
+        options.api_key = value
+        provided.api_key = true
+      when "--urls"
+        options.urls = value
+        provided.urls = true
+      when "--apis"
+        options.apis = value
+        provided.apis = true
+      when "--report-format"
+        options.report_format = value
+        provided.report_format = true
+      when "--report-out"
+        options.report_out = value
+        provided.report_out = true
+      else
+        raise ArgumentError.new("Unknown option: #{flag}")
+      end
+
+      {options, provided}
+    end
+
+    private def self.assign_int_option(
+      options : GlobalOptions,
+      provided : ProvidedOptions,
+      flag : String,
+      value : Int32
+    ) : {GlobalOptions, ProvidedOptions}
+      case flag
+      when "--wait-interval"
+        options.wait_interval_seconds = value
+        provided.wait_interval_seconds = true
+      when "--wait-timeout"
+        options.wait_timeout_seconds = value
+        provided.wait_timeout_seconds = true
+      else
+        raise ArgumentError.new("Unknown option: #{flag}")
+      end
+
+      {options, provided}
     end
 
     private def self.parse_string_option(flag : String, value : String?, reject_dash_prefixed : Bool = false) : String

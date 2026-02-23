@@ -147,6 +147,109 @@ describe Mzap do
     end
   end
 
+  it "reports mixed saved fallback and failed summary counts across api hosts" do
+    saved_server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"201"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"100"}))
+      when Mzap::Client::REPORT_GENERATE_API
+        context.response.status_code = 200
+        context.response.print(%({"result":"ok"}))
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    fallback_server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"202"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"100"}))
+      when Mzap::Client::REPORT_GENERATE_API
+        context.response.status_code = 404
+        context.response.print("missing")
+      when Mzap::Client::HTML_REPORT_API
+        context.response.status_code = 200
+        context.response.print("<html>fallback host report</html>")
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    failed_server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"203"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"100"}))
+      when Mzap::Client::REPORT_GENERATE_API
+        context.response.status_code = 500
+        context.response.print("filtered fail")
+      when Mzap::Client::HTML_REPORT_API
+        context.response.status_code = 500
+        context.response.print("core fail")
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    report_dir = File.tempname("mzap-mixed-report")
+    report_path = File.join(report_dir, "report.html")
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://saved.test", "https://fallback.test", "https://failed.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file, true, 0, 5, "html", report_path)
+        Mzap.spider(target_file, "#{saved_server.url},#{fallback_server.url},#{failed_server.url}", options, reporter)
+      end
+
+      stdout = stdout_io.to_s
+      stderr = stderr_io.to_s
+      stdout.includes?("summary total=3 saved=1 fallback=1 failed=1").should be_true
+      stderr.includes?("filtered generation failed (HTTP 404)").should be_true
+      stderr.includes?("filtered generation failed (HTTP 500)").should be_true
+      stderr.includes?("error (HTTP 500)").should be_true
+
+      fallback_file = File.join(
+        File.dirname(File.expand_path(report_path)),
+        "report-#{sanitized_host_for_report(fallback_server.url)}.html"
+      )
+      failed_file = File.join(
+        File.dirname(File.expand_path(report_path)),
+        "report-#{sanitized_host_for_report(failed_server.url)}.html"
+      )
+      File.exists?(fallback_file).should be_true
+      File.exists?(failed_file).should be_false
+    ensure
+      FileUtils.rm_rf(report_dir)
+      saved_server.close
+      fallback_server.close
+      failed_server.close
+    end
+  end
+
   it "normalizes report output extension to report format" do
     server = TestServer.new(->(context : HTTP::Server::Context) do
       case context.request.path
@@ -243,6 +346,55 @@ describe Mzap do
     ensure
       server1.close
       server2.close
+    end
+  end
+
+  it "deduplicates host-specific report names when sanitized host values collide" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      normalized_path = context.request.path.gsub(/^\/+/, "/")
+      case normalized_path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"15"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"100"}))
+      when Mzap::Client::REPORT_GENERATE_API
+        context.response.status_code = 200
+        context.response.print(%({"result":"ok"}))
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    begin
+      reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
+      with_target_file(["https://collision-one.test", "https://collision-two.test", "https://collision-three.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file, true, 0, 5, "html", "collision-report")
+        Mzap.spider(target_file, "#{server.url},#{server.url}/,#{server.url}//", options, reporter)
+      end
+
+      report_requests = server.requests.select { |request| request.path.ends_with?(Mzap::Client::REPORT_GENERATE_API) }
+      report_requests.size.should eq(3)
+
+      report_names = report_requests.map do |request|
+        params = HTTP::Params.parse(request.query || "")
+        params["reportFileName"]
+      end
+
+      safe_host = sanitized_host_for_report(server.url)
+      expected_names = [
+        "collision-report-#{safe_host}.html",
+        "collision-report-#{safe_host}-2.html",
+        "collision-report-#{safe_host}-3.html",
+      ]
+      report_names.sort.should eq(expected_names.sort)
+    ensure
+      server.close
     end
   end
 

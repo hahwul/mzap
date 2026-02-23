@@ -52,6 +52,32 @@ describe Mzap::CLI do
     end
   end
 
+  it "accepts explicit non-toml config path without loading scan options from it" do
+    config_path = "#{File.tempname("mzap-config")}.yaml"
+    File.write(
+      config_path,
+      <<-YAML
+      apis: "http://example.invalid:8090"
+      urls: "/tmp/targets.txt"
+      wait: true
+      report_format: "html"
+      YAML
+    )
+
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+    begin
+      code = Mzap::CLI.run(["spider", "--config", config_path], stdout_io, stderr_io)
+      code.should eq(1)
+      stdout = stdout_io.to_s
+      stdout.includes?("Using config file: #{config_path}").should be_true
+      stdout.includes?("Please input --urls flag").should be_true
+      stderr_io.to_s.includes?("Invalid TOML").should be_false
+    ensure
+      File.delete(config_path) if File.exists?(config_path)
+    end
+  end
+
   it "loads API host and key from default TOML config" do
     server = TestServer.new
 
@@ -287,6 +313,83 @@ describe Mzap::CLI do
     end
   end
 
+  it "prefers CLI scan flags over conflicting config wait/report settings" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"56"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"100"}))
+      when Mzap::Client::REPORT_GENERATE_API
+        context.response.status_code = 200
+        context.response.print(%({"result":"ok"}))
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    cli_report = "#{File.tempname("mzap-cli-overrides-config")}.html"
+    begin
+      with_temp_home do |temp_home|
+        with_target_file(["https://config-override-scan.test"]) do |target_file|
+          config_path = File.join(temp_home, ".config", "mzap", "config.toml")
+          Dir.mkdir_p(File.dirname(config_path))
+          File.write(
+            config_path,
+            <<-TOML
+            [mzap]
+            apis = "#{server.url}"
+            urls = "#{target_file}"
+            wait_interval = 0
+            wait_timeout = -1
+            report_format = "xml"
+            report_out = "from-config.xml"
+            TOML
+          )
+
+          stdout_io = IO::Memory.new
+          stderr_io = IO::Memory.new
+          code = Mzap::CLI.run(
+            [
+              "spider",
+              "--wait-interval",
+              "1",
+              "--wait-timeout=5",
+              "--report-format=html",
+              "--report-out",
+              cli_report,
+            ],
+            stdout_io,
+            stderr_io
+          )
+          code.should eq(0)
+          stderr_io.to_s.includes?("--report-format supports only html or pdf").should be_false
+          stderr_io.to_s.includes?("--wait-interval must be greater than 0").should be_false
+          stderr_io.to_s.includes?("--wait-timeout must be 0 or greater").should be_false
+        end
+      end
+
+      paths = server.requests.map(&.path)
+      paths.includes?(Mzap::Client::SPIDER_STATUS).should be_true
+
+      report_request = server.requests.find { |request| request.path == Mzap::Client::REPORT_GENERATE_API }
+      report_request.should_not be_nil
+      params = HTTP::Params.parse(report_request.not_nil!.query || "")
+      full_path = File.expand_path(cli_report)
+      params["template"].should eq("traditional-html")
+      params["reportFileName"].should eq(File.basename(full_path))
+      params["reportDir"].should eq(File.dirname(full_path))
+    ensure
+      server.close
+    end
+  end
+
   it "returns error when scan urls file cannot be read" do
     stdout_io = IO::Memory.new
     stderr_io = IO::Memory.new
@@ -360,6 +463,61 @@ describe Mzap::CLI do
       params["reportFileName"].should eq(File.basename(File.expand_path(report_path)))
     ensure
       File.delete(report_path) if File.exists?(report_path)
+      server.close
+    end
+  end
+
+  it "uses the last report out flag value when repeated with mixed syntax" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"121"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"100"}))
+      when Mzap::Client::REPORT_GENERATE_API
+        context.response.status_code = 200
+        context.response.print(%({"result":"ok"}))
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    first_report = "#{File.tempname("mzap-cli-report-out-first")}.html"
+    second_report = "#{File.tempname("mzap-cli-report-out-second")}.html"
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      with_target_file(["https://cli-report-out.test"]) do |target_file|
+        code = Mzap::CLI.run(
+          [
+            "spider",
+            "--urls",
+            target_file,
+            "--apis=#{server.url}",
+            "--report-format=html",
+            "--report-out=#{first_report}",
+            "--report-out",
+            second_report,
+          ],
+          stdout_io,
+          stderr_io
+        )
+        code.should eq(0)
+      end
+
+      report_request = server.requests.find { |request| request.path == Mzap::Client::REPORT_GENERATE_API }
+      report_request.should_not be_nil
+      params = HTTP::Params.parse(report_request.not_nil!.query || "")
+      full_path = File.expand_path(second_report)
+      params["reportFileName"].should eq(File.basename(full_path))
+      params["reportDir"].should eq(File.dirname(full_path))
+    ensure
       server.close
     end
   end

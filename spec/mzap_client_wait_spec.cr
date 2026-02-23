@@ -606,4 +606,46 @@ describe Mzap do
     end
   end
 
+  it "treats busy, started, and inprogress as running and waits for completion" do
+    {"busy", "started", "inprogress"}.each do |running_status|
+      status_calls = 0
+      server = TestServer.new(->(context : HTTP::Server::Context) do
+        case context.request.path
+        when Mzap::Client::ACCESS_API
+          context.response.status_code = 200
+          context.response.print("ok")
+        when Mzap::Client::SPIDER_API
+          context.response.status_code = 200
+          context.response.print(%({"scan":"88"}))
+        when Mzap::Client::SPIDER_STATUS
+          status_calls += 1
+          context.response.status_code = 200
+          if status_calls == 1
+            context.response.print(%({"status":"#{running_status}"}))
+          else
+            context.response.print(%({"status":"100"}))
+          end
+        else
+          context.response.status_code = 404
+          context.response.print("not found")
+        end
+      end)
+
+      begin
+        stdout_io = IO::Memory.new
+        stderr_io = IO::Memory.new
+        reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+        with_target_file(["https://#{running_status}-status.test"]) do |target_file|
+          options = Mzap::Options.new("", target_file, true, 0, 5)
+          Mzap.spider(target_file, server.url, options, reporter)
+        end
+
+        status_calls.should eq(2)
+        stderr_io.to_s.includes?("status check failed").should be_false
+      ensure
+        server.close
+      end
+    end
+  end
+
 end

@@ -23,8 +23,18 @@
   - Output formatting (`INFO` to stdout, `WARN` to stderr).
 - `src/mzap/config.cr`
   - Optional config-file notice (`~/.mzap*`).
-- `spec/mzap_spec.cr`
-  - Main behavioral tests using an in-process HTTP server mock.
+- `spec/mzap_client_scan_spec.cr`
+  - Scan dispatch behavior and request/header checks.
+- `spec/mzap_client_wait_spec.cr`
+  - Wait/poll lifecycle, status parsing, timeout paths.
+- `spec/mzap_client_report_spec.cr`
+  - Report generation, output path resolution, fallback behavior.
+- `spec/mzap_client_stop_spec.cr`
+  - Stop endpoints and stop-summary behavior.
+- `spec/mzap_cli_*.cr`, `spec/mzap_config_*.cr`
+  - CLI routing/validation and config discovery/parsing coverage.
+- `spec/support/test_helpers.cr`
+  - Shared `TestServer` and test helper utilities.
 - `github-action/` + `action.yml`
   - Docker-based GitHub Action wrapper for CLI execution.
 
@@ -40,7 +50,7 @@
   - `crystal run src/mzap_cli.cr -- spider --urls samples/target.txt --apis http://localhost:8090`
 
 ## Agent Workflow
-1. Read affected files in `src/mzap/` and matching specs in `spec/mzap_spec.cr`.
+1. Read affected files in `src/mzap/` and matching specs in `spec/mzap_*_spec.cr`.
 2. Implement changes with minimal scope.
 3. Add/update tests for behavior changes.
 4. Run `crystal spec` and, when relevant, release build command.
@@ -61,7 +71,7 @@
   - Reporter output format is part of contract; avoid unnecessary format changes.
 
 ## Testing Notes
-- Reuse `TestServer` pattern in `spec/mzap_spec.cr`.
+- Reuse `TestServer` pattern in `spec/support/test_helpers.cr`.
 - Assert:
   - Request path and query params.
   - Header propagation (`X-ZAP-API-Key`).

@@ -70,6 +70,15 @@ describe Mzap::CLI do
     stderr_io.to_s.includes?("Unknown option: --unknown").should be_true
   end
 
+  it "returns error for unknown option using equals syntax" do
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+
+    code = Mzap::CLI.run(["version", "--unknown=value"], stdout_io, stderr_io)
+    code.should eq(1)
+    stderr_io.to_s.includes?("Unknown option: --unknown=value").should be_true
+  end
+
   it "accepts dash-prefixed option value with equals syntax" do
     server = TestServer.new
     stdout_io = IO::Memory.new
@@ -85,6 +94,68 @@ describe Mzap::CLI do
     ensure
       server.close
     end
+  end
+
+  it "uses the last apis flag value when repeated with mixed syntax" do
+    first_server = TestServer.new
+    second_server = TestServer.new
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+
+    begin
+      code = Mzap::CLI.run(
+        ["stop", "spider", "--apis=#{first_server.url}", "--apis", second_server.url],
+        stdout_io,
+        stderr_io
+      )
+      code.should eq(0)
+
+      first_server.requests.should be_empty
+      second_server.requests.size.should eq(1)
+    ensure
+      first_server.close
+      second_server.close
+    end
+  end
+
+  it "uses the last wait interval flag value when repeated with mixed syntax" do
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+
+    code = Mzap::CLI.run(["version", "--wait-interval=0", "--wait-interval", "2"], stdout_io, stderr_io)
+    code.should eq(0)
+    stdout_io.to_s.includes?(Mzap::VERSION).should be_true
+
+    stdout_io.clear
+    stderr_io.clear
+    code = Mzap::CLI.run(["version", "--wait-interval", "2", "--wait-interval=0"], stdout_io, stderr_io)
+    code.should eq(1)
+    stderr_io.to_s.includes?("--wait-interval must be greater than 0").should be_true
+  end
+
+  it "uses the last report format flag value when repeated with mixed syntax" do
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+    missing_targets = "definitely-missing-targets.txt"
+
+    code = Mzap::CLI.run(
+      ["spider", "--urls", missing_targets, "--report-format=xml", "--report-format", "html"],
+      stdout_io,
+      stderr_io
+    )
+    code.should eq(1)
+    stderr_io.to_s.includes?("--report-format supports only html or pdf").should be_false
+    stderr_io.to_s.includes?("No such file").should be_true
+
+    stdout_io.clear
+    stderr_io.clear
+    code = Mzap::CLI.run(
+      ["spider", "--urls", missing_targets, "--report-format", "html", "--report-format=xml"],
+      stdout_io,
+      stderr_io
+    )
+    code.should eq(1)
+    stderr_io.to_s.includes?("--report-format supports only html or pdf").should be_true
   end
 
   it "returns error when string option value is missing" do

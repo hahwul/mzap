@@ -1,35 +1,47 @@
-<h1 align="center">
-  <br>
-  <a href=""><img src="https://user-images.githubusercontent.com/13212227/90962250-b72e5000-e4e9-11ea-8c42-75e9d0d799be.jpg" width="100%"></a>
-  <br>
-  <a href=""><img src="https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat"></a>
-  <img src="https://img.shields.io/github/v/release/hahwul/mzap?style=flat"> 
-  <a href="https://goreportcard.com/report/github.com/hahwul/mzap"><img src="https://goreportcard.com/badge/github.com/hahwul/mzap"></a>
-  <a href="https://twitter.com/intent/follow?screen_name=hahwul"><img src="https://img.shields.io/twitter/follow/hahwul?style=flat&logo=twitter"></a>
-</h1>
-⚡️ Multiple target ZAP Scanning / mzap is a tool for scanning N*N in ZAP.
+# mzap
 
-## Concept
-![1414](https://user-images.githubusercontent.com/13212227/90961636-4a18bb80-e4e5-11ea-9913-a573fe748ce4.png)
+`mzap` is a Crystal CLI for multi-target OWASP ZAP scanning.
+It dispatches targets across one or more ZAP API hosts, supports optional wait mode, and can export reports.
+
+## Features
+
+- Multiple scan commands: `spider`, `ajaxspider`, `ascan`
+- Multi-host dispatch with round-robin scheduling
+- Optional wait/poll mode with timeout support
+- Report export (`html`/`pdf`) with fallback behavior
+- Stop commands for `spider`, `ajaxspider`, `ascan`, or `all`
+- Optional config loading from `$HOME/.config/mzap/config.toml` and legacy paths
+
+## Requirements
+
+- Crystal `>= 1.19.1`
+- A running OWASP ZAP API endpoint (or endpoints)
 
 ## Installation
-### go
-```
-go install github.com/hahwul/mzap@latest
+
+### Build From Source
+
+```bash
+shards install --frozen
+crystal build --release src/mzap_cli.cr -o bin/mzap
 ```
 
-### snapcraft
+### Run Without Building
+
+```bash
+crystal run src/mzap_cli.cr -- version
 ```
-sudo snap install mzap
-```
-### homebrew
-```
-brew tap hahwul/mzap
-brew install mzap
+
+### Docker Image
+
+```bash
+docker build -t mzap .
+docker run --rm -v "$PWD:/work" mzap spider --urls /work/samples/target.txt --apis http://host.docker.internal:8090
 ```
 
 ## Usage
-```
+
+```text
 Usage:
   mzap [command]
 
@@ -42,21 +54,43 @@ Subcommands:
   version     Show mzap version
 
 Flags:
-      --apikey string        ZAP API key (omit when API key auth is disabled)
-      --apis string          Comma-separated ZAP API host URLs
-                             e.g. --apis http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
-      --config string        Config file path (TOML supported; default: $HOME/.config/mzap/config.toml)
-      --report-format        Report format after scan completion (html/pdf)
-      --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
-      --wait                 Wait for initiated scans to complete
-      --wait-interval        Poll interval in seconds while waiting (default 2)
-      --wait-timeout         Wait timeout in seconds (default 0: no timeout)
-      -h, --help             Show help for mzap
-      --urls string          Path to URL list file (e.g. --urls hosts.txt)
+  --apikey string        ZAP API key (omit when API key auth is disabled)
+  --apis string          Comma-separated ZAP API host URLs
+                         e.g. --apis http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
+  --config string        Config file path (TOML supported; default: $HOME/.config/mzap/config.toml)
+  --report-format        Report format after scan completion (html/pdf)
+  --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
+  --wait                 Wait for initiated scans to complete
+  --wait-interval        Poll interval in seconds while waiting (default 2)
+  --wait-timeout         Wait timeout in seconds (default 0: no timeout)
+  -h, --help             Show help for mzap
+  --urls string          Path to URL list file (e.g. --urls hosts.txt)
 ```
 
-`mzap` automatically loads config from `$HOME/.config/mzap/config.toml` when present.
-CLI flags override values from config.
+## Examples
+
+```bash
+# spider scan with two ZAP API hosts
+mzap spider --urls samples/target.txt --apis http://localhost:8090,http://192.168.0.4:8090
+
+# run scan, wait for completion, and generate an HTML report
+mzap spider --urls samples/target.txt --apis http://localhost:8090 --wait --report-format html --report-out reports/mzap.html
+
+# stop all running scan types
+mzap stop all --apis http://localhost:8090
+```
+
+## Config
+
+`mzap` automatically loads config when present.
+Priority is:
+
+1. Explicit `--config` path (if it exists)
+2. `$HOME/.config/mzap/config.toml`
+3. `$HOME/.config/mzap/config` + extension variants
+4. `$HOME/.mzap` + extension variants
+
+CLI flags always override config values.
 
 ```toml
 [mzap]
@@ -70,43 +104,23 @@ report_format = "html"
 report_out = "reports/mzap.html"
 ```
 
-```bash
-# wait until spider scan is complete, then export report
-mzap spider --urls sample/target.txt --apis http://localhost:8090 --wait --report-format html --report-out reports/mzap.html
-```
+## GitHub Action
 
-```
-$ mzap spider --urls sample/target.txt --apis
+This repository includes a Docker-based GitHub Action (`action.yml`).
 
-          ,/
-        ,'/
-      ,' /
-    ,'  /_____,
-  .'____    ,'                     MZAP
-        /  ,'     [ Multiple target/agent ZAP scanning ]
-       / ,'       [ v1.3.1 ] [ by @hahwul ]
-      /,'
-     /'
-
-Jan 26 01:12:00.081 [INFO] [spider] start
-Jan 26 01:12:00.088 [INFO] [spider] [http://localhost:8090] [http://testphp.vulnweb.com/] added
-Jan 26 01:12:00.090 [INFO] [spider] [http://localhost:8090] [https://www.hahwul.com] added
-Jan 26 01:12:00.092 [INFO] [spider] [http://localhost:8090] [https://owasp.org] added
-Jan 26 01:12:00.095 [INFO] [spider] [http://localhost:8090] [https://www.zaproxy.org] added
-Jan 26 01:12:00.098 [INFO] [spider] [http://localhost:8090] [https://portswigger.net] added
-Jan 26 01:12:00.101 [INFO] [spider] [http://localhost:8090] [https://www.hackerone.com] added
-Jan 26 01:12:00.103 [INFO] [spider] [http://localhost:8090] [https://www.bugcrowd.com] added
-Jan 26 01:12:00.106 [INFO] [spider] [http://localhost:8090] [https://dalfox.hahwul.com] added
-Jan 26 01:12:00.108 [INFO] [spider] [http://localhost:8090] [https://authz0.hahwul.com] added
-```
-
-![1413](https://user-images.githubusercontent.com/13212227/151013450-985ff38c-5bbf-4a58-b160-58dfebd0bf11.png)
-![1414](https://user-images.githubusercontent.com/13212227/90961367-4be17f80-e4e3-11ea-8d9f-68d8ba5d851f.png)
-
-### Github action
 ```yaml
-- name: MZAP Env
-  uses: hahwul/mzap@v1.3.1-action
+- name: Run mzap
+  uses: hahwul/mzap@<tag>
   with:
-    arguments: 'spider --urls sample/target.txt --apis'
+    arguments: "spider --urls samples/target.txt --apis http://localhost:8090"
+```
+
+## Development
+
+```bash
+# tests
+crystal spec
+
+# release build
+crystal build --release src/mzap_cli.cr -o bin/mzap
 ```

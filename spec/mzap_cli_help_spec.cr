@@ -59,4 +59,14 @@ describe Mzap::CLI do
     stderr_io.to_s.includes?("only available for spider/ajaxspider/ascan").should be_false
   end
 
+  it "returns unknown option error even when --help is present" do
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+
+    code = Mzap::CLI.run(["--help", "--unknown=value"], stdout_io, stderr_io)
+    code.should eq(1)
+    stderr_io.to_s.includes?("Unknown option: --unknown=value").should be_true
+    stdout_io.to_s.includes?("Usage:").should be_false
+  end
+
 end

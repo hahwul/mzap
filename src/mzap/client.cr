@@ -465,8 +465,12 @@ module Mzap
 
       dir = File.dirname(base_output)
       stem = File.basename(base_output, ext)
+      host_name_counts = Hash(String, Int32).new(0)
       api_hosts.each do |api_host|
-        safe_host = sanitize_host(api_host)
+        safe_host_base = sanitize_host(api_host)
+        host_name_counts[safe_host_base] += 1
+        suffix = host_name_counts[safe_host_base]
+        safe_host = suffix == 1 ? safe_host_base : "#{safe_host_base}-#{suffix}"
         filename = "#{stem}-#{safe_host}#{ext}"
         if dir == "."
           paths[api_host] = filename
