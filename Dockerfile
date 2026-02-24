@@ -7,6 +7,7 @@ COPY shard.yml shard.lock ./
 RUN shards install --production --frozen
 COPY src ./src
 COPY samples ./samples
+RUN mkdir -p /app/bin
 RUN crystal build --release src/mzap_cli.cr -o /app/bin/mzap
 
 FROM crystallang/crystal:${CRYSTAL_VERSION}
