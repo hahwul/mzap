@@ -2,9 +2,9 @@ name: Crystal CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 env:
   CRYSTAL_VERSION: 1.19.1
@@ -37,7 +37,7 @@ jobs:
           shards install --frozen
 
       - name: Build
-        run: crystal build --release src/mzap_cli.cr -o bin/mzap
+        run: shards build
 
       - name: Test
         run: crystal spec
