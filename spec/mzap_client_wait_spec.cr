@@ -647,5 +647,4 @@ describe Mzap do
       end
     end
   end
-
 end

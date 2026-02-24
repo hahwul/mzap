@@ -4,9 +4,9 @@ module Mzap
   module Config
     extend self
 
-    EXTENSIONS = %w(.toml .yaml .yml .json .hcl .ini .properties)
+    EXTENSIONS          = %w(.toml .yaml .yml .json .hcl .ini .properties)
     DEFAULT_CONFIG_PATH = File.join(".config", "mzap", "config.toml")
-    ROOT_TABLE = "mzap"
+    ROOT_TABLE          = "mzap"
 
     class FileOptions
       property path : String?

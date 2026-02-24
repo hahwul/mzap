@@ -125,5 +125,4 @@ describe Mzap::Config do
     Mzap::Config.show_config_notice(missing_path, output)
     output.to_s.should eq("")
   end
-
 end

@@ -348,5 +348,4 @@ describe Mzap::Config do
       loaded.report_out.should eq("reports\\daily\nreport.html")
     end
   end
-
 end

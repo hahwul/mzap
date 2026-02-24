@@ -599,5 +599,4 @@ describe Mzap::CLI do
       server.close
     end
   end
-
 end

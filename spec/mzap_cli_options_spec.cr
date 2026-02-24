@@ -424,5 +424,4 @@ describe Mzap::CLI do
     code.should eq(1)
     stderr_io.to_s.includes?("--wait and report options are only available").should be_true
   end
-
 end

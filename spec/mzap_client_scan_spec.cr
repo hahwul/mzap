@@ -261,5 +261,4 @@ describe Mzap do
     stderr.includes?("error (scan)").should be_true
     stdout.includes?("summary targets=1 success=0 scan_errors=1 access_errors=1").should be_true
   end
-
 end

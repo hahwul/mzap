@@ -103,5 +103,4 @@ describe Mzap do
       server.close
     end
   end
-
 end

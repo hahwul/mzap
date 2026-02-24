@@ -68,5 +68,4 @@ describe Mzap::CLI do
     stderr_io.to_s.includes?("Unknown option: --unknown=value").should be_true
     stdout_io.to_s.includes?("Usage:").should be_false
   end
-
 end
