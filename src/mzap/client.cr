@@ -83,7 +83,7 @@ module Mzap
           report_targets_by_api[api_host] << target
         end
 
-        access_result = call_api(target, api_host, ACCESS_API, options)
+        access_result = call_scan_api(target, api_host, ACCESS_API, options)
         unless access_result.success
           access_errors += 1
           reporter.warn(scan_type, "error (access) #{api_call_failure_reason(access_result)}", api_host, target)
@@ -108,11 +108,7 @@ module Mzap
           end
         end
 
-        if api_hosts.size - 1 > index
-          index += 1
-        else
-          index = 0
-        end
+        index = (index + 1) % api_hosts.size
       end
 
       reporter.info(scan_type, "summary targets=#{targets.size} success=#{scan_success} scan_errors=#{scan_errors} access_errors=#{access_errors}")
@@ -150,10 +146,6 @@ module Mzap
       else
         "scan"
       end
-    end
-
-    private def call_api(target : String, api_host : String, prefix : String, options : Options) : ApiCallResult
-      call_scan_api(target, api_host, prefix, options)
     end
 
     private def call_scan_api(target : String, api_host : String, prefix : String, options : Options) : ApiCallResult
@@ -196,7 +188,7 @@ module Mzap
           body = drain_response(response)
         end
         ApiCallResult.new(success, body, status_code, nil)
-      rescue ex : Exception
+      rescue ex : Exception # Network errors (Socket::Error, IO::Error, etc.) vary widely
         ApiCallResult.new(false, "", nil, ex.message || ex.class.name)
       end
     end
@@ -263,7 +255,7 @@ module Mzap
     private def extract_json_value(body : String, keys : Array(String)) : String?
       begin
         data = JSON.parse(body).as_h
-      rescue
+      rescue ex : JSON::ParseException
         return nil
       end
 
@@ -312,7 +304,7 @@ module Mzap
 
       loop do
         pending_scan_jobs.reject! do |job|
-          poll = scan_job_completed?(job, options)
+          poll = check_scan_status(job.api_host, job.status_api, job.scan_id, options)
           if poll.completed
             completed_scan_jobs += 1
             reporter.info("wait", "complete", job.api_host, "#{job.type}:#{job.target}")
@@ -332,7 +324,7 @@ module Mzap
         end
 
         pending_ajax_hosts.reject! do |api_host|
-          poll = ajax_scan_completed?(api_host, options)
+          poll = check_scan_status(api_host, AJAX_STATUS, nil, options)
           if poll.completed
             completed_ajax_hosts += 1
             reporter.info("wait", "complete", api_host, "ajax-spider")
@@ -375,25 +367,14 @@ module Mzap
       (Time.utc - started_at).total_seconds >= timeout_seconds
     end
 
-    private def scan_job_completed?(job : ScanJob, options : Options) : WaitPollResult
-      uri = URI.parse("#{job.api_host}#{job.status_api}")
-      query = HTTP::Params.parse(uri.query || "")
-      query["scanId"] = job.scan_id
-      uri.query = query.to_s
-
-      result = get_response(uri, options)
-      unless result.success
-        return WaitPollResult.new(false, api_call_failure_reason(result))
+    private def check_scan_status(api_host : String, status_api : String, scan_id : String?, options : Options) : WaitPollResult
+      uri = URI.parse("#{api_host}#{status_api}")
+      if scan_id
+        query = HTTP::Params.parse(uri.query || "")
+        query["scanId"] = scan_id
+        uri.query = query.to_s
       end
-      status = parse_status(result.body)
-      if status.nil?
-        return WaitPollResult.new(false, "(missing status value)")
-      end
-      WaitPollResult.new(status_indicates_done?(status), nil)
-    end
 
-    private def ajax_scan_completed?(api_host : String, options : Options) : WaitPollResult
-      uri = URI.parse("#{api_host}#{AJAX_STATUS}")
       result = get_response(uri, options)
       unless result.success
         return WaitPollResult.new(false, api_call_failure_reason(result))
@@ -408,7 +389,7 @@ module Mzap
     private def status_indicates_done?(status : String?) : Bool
       return false unless status
 
-      normalized = status.not_nil!.strip.downcase
+      normalized = status.strip.downcase
       if percentage = normalized.to_i?
         return percentage >= 100
       end
@@ -530,7 +511,7 @@ module Mzap
       uri.query = query.to_s
 
       get_response(uri, options)
-    rescue ex : Exception
+    rescue ex : File::Error | IO::Error
       ApiCallResult.new(false, "", nil, ex.message || ex.class.name)
     end
 
@@ -544,7 +525,7 @@ module Mzap
       Dir.mkdir_p(File.dirname(full_path))
       File.write(full_path, result.body)
       ApiCallResult.new(true, result.body, result.status_code, nil)
-    rescue ex : Exception
+    rescue ex : File::Error | IO::Error
       ApiCallResult.new(false, "", nil, ex.message || ex.class.name)
     end
   end

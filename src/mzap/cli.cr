@@ -146,26 +146,15 @@ module Mzap
 
       begin
         case command
-        when "spider"
+        when "spider", "ajaxspider", "ascan"
           if options.urls.empty?
             stdout_io.puts "Please input --urls flag"
             return 1
-          else
-            Client.spider(options.urls, options.apis, zap_options, reporter)
           end
-        when "ajaxspider"
-          if options.urls.empty?
-            stdout_io.puts "Please input --urls flag"
-            return 1
-          else
-            Client.ajax_spider(options.urls, options.apis, zap_options, reporter)
-          end
-        when "ascan"
-          if options.urls.empty?
-            stdout_io.puts "Please input --urls flag"
-            return 1
-          else
-            Client.active_scan(options.urls, options.apis, zap_options, reporter)
+          case command
+          when "spider"     then Client.spider(options.urls, options.apis, zap_options, reporter)
+          when "ajaxspider" then Client.ajax_spider(options.urls, options.apis, zap_options, reporter)
+          when "ascan"      then Client.active_scan(options.urls, options.apis, zap_options, reporter)
           end
         when "stop"
           if command_args.empty?
@@ -340,7 +329,7 @@ module Mzap
       pair = split_equals_option(arg)
       return {false, options, provided} unless pair
 
-      flag, raw_value = pair.not_nil!
+      flag, raw_value = pair
       if string_flag?(flag)
         value = parse_string_option(flag, raw_value)
         options, provided = assign_string_option(options, provided, flag, value)
@@ -439,7 +428,7 @@ module Mzap
         raise ArgumentError.new("Invalid integer for #{flag}: #{raw}")
       end
 
-      parsed.not_nil!
+      parsed
     end
   end
 end

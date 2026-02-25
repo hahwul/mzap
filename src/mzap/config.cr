@@ -92,8 +92,6 @@ module Mzap
         key, raw_value = split_toml_assignment(content, path, line_number)
         apply_toml_option(options, key, raw_value, path, line_number)
       end
-    rescue ex : ArgumentError
-      raise ex
     rescue ex
       raise ArgumentError.new("Failed to parse TOML config file #{path}: #{ex.message || ex.to_s}")
     end
@@ -250,7 +248,7 @@ module Mzap
         raise ArgumentError.new("Invalid TOML integer for #{key} in #{path}:#{line_number}")
       end
 
-      parsed.not_nil!
+      parsed
     end
 
     private def normalize_config_key(raw_key : String) : String
