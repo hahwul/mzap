@@ -42,9 +42,9 @@ module Mzap
       options
     end
 
-    def show_config_notice(config_path : String, io : IO = STDOUT) : Nil
-      if selected = resolve_config_path(config_path)
-        io.puts "Using config file: #{selected}"
+    def show_config_notice(resolved_path : String?, io : IO = STDOUT) : Nil
+      if resolved_path
+        io.puts "Using config file: #{resolved_path}"
       end
     end
 
@@ -163,32 +163,9 @@ module Mzap
     private def split_toml_array_items(body : String, path : String, line_number : Int32) : Array(String)
       items = [] of String
       start_index = 0
-      in_quotes = false
-      quote_char = '\0'
-      escaped = false
 
-      body.each_char_with_index do |char, index|
-        if in_quotes
-          if quote_char == '"' && !escaped && char == '\\'
-            escaped = true
-            next
-          end
-
-          if !escaped && char == quote_char
-            in_quotes = false
-          end
-          escaped = false
-          next
-        end
-
-        if char == '"' || char == '\''
-          in_quotes = true
-          quote_char = char
-          escaped = false
-          next
-        end
-
-        if char == ','
+      unclosed = scan_with_quote_context(body) do |char, index, in_quotes|
+        if !in_quotes && char == ','
           item = body[start_index...index].strip
           if item.empty?
             raise ArgumentError.new("Invalid TOML array item in #{path}:#{line_number}")
@@ -198,7 +175,7 @@ module Mzap
         end
       end
 
-      if in_quotes
+      if unclosed
         raise ArgumentError.new("Invalid TOML array in #{path}:#{line_number}")
       end
 
@@ -267,52 +244,16 @@ module Mzap
       end
     end
 
-    private def strip_toml_comment(line : String) : String
+    private def scan_with_quote_context(text : String) : Bool
       in_quotes = false
       quote_char = '\0'
       escaped = false
 
-      String.build do |io|
-        line.each_char do |char|
-          if in_quotes
-            if quote_char == '"' && !escaped && char == '\\'
-              escaped = true
-              io << char
-              next
-            end
-
-            if !escaped && char == quote_char
-              in_quotes = false
-            end
-            escaped = false
-            io << char
-            next
-          end
-
-          if char == '"' || char == '\''
-            in_quotes = true
-            quote_char = char
-            escaped = false
-            io << char
-            next
-          end
-
-          break if char == '#'
-
-          io << char
-        end
-      end
-    end
-
-    private def index_of_unquoted_char(value : String, target : Char) : Int32
-      in_quotes = false
-      quote_char = '\0'
-      escaped = false
-
-      value.each_char_with_index do |char, index|
+      text.each_char_with_index do |char, index|
         if in_quotes
           if quote_char == '"' && !escaped && char == '\\'
             escaped = true
+            yield char, index, true
             next
           end
 
@@ -320,6 +261,7 @@ module Mzap
             in_quotes = false
           end
           escaped = false
+          yield char, index, true
           next
         end
 
@@ -327,13 +269,34 @@ module Mzap
           in_quotes = true
           quote_char = char
           escaped = false
+          yield char, index, true
           next
         end
 
-        return index if char == target
+        yield char, index, false
       end
 
-      -1
+      in_quotes
+    end
+
+    private def strip_toml_comment(line : String) : String
+      comment_index = -1
+      scan_with_quote_context(line) do |char, index, in_quotes|
+        if comment_index < 0 && !in_quotes && char == '#'
+          comment_index = index
+        end
+      end
+      comment_index >= 0 ? line[0...comment_index] : line
+    end
+
+    private def index_of_unquoted_char(value : String, target : Char) : Int32
+      result = -1
+      scan_with_quote_context(value) do |char, index, in_quotes|
+        if result < 0 && !in_quotes && char == target
+          result = index
+        end
+      end
+      result
     end
   end
 end

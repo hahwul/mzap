@@ -98,7 +98,7 @@ module Mzap
         return 1
       end
 
-      Config.show_config_notice(options.config, stdout_io)
+      Config.show_config_notice(config_options.path, stdout_io)
 
       if options.help || args.empty?
         stdout_io.puts HELP_TEXT

@@ -1,6 +1,7 @@
 require "http/client"
 require "http/params"
 require "json"
+require "set"
 require "uri"
 
 module Mzap
@@ -72,16 +73,14 @@ module Mzap
       index = 0
       scan_jobs = [] of ScanJob
       ajax_wait_hosts = [] of String
-      report_targets_by_api = Hash(String, Array(String)).new { |hash, key| hash[key] = [] of String }
+      report_targets_by_api = Hash(String, Set(String)).new { |hash, key| hash[key] = Set(String).new }
       access_errors = 0
       scan_errors = 0
       scan_success = 0
 
       targets.each do |target|
         api_host = api_hosts[index]
-        unless report_targets_by_api[api_host].includes?(target)
-          report_targets_by_api[api_host] << target
-        end
+        report_targets_by_api[api_host] << target
 
         access_result = call_scan_api(target, api_host, ACCESS_API, options)
         unless access_result.success
@@ -178,19 +177,17 @@ module Mzap
     end
 
     private def get_response(uri : URI, options : Options) : ApiCallResult
-      begin
-        success = false
-        body = ""
-        status_code : Int32? = nil
-        HTTP::Client.get(uri, headers: request_headers(options)) do |response|
-          success = response.success?
-          status_code = response.status_code
-          body = drain_response(response)
-        end
-        ApiCallResult.new(success, body, status_code, nil)
-      rescue ex : Exception # Network errors (Socket::Error, IO::Error, etc.) vary widely
-        ApiCallResult.new(false, "", nil, ex.message || ex.class.name)
+      success = false
+      body = ""
+      status_code : Int32? = nil
+      HTTP::Client.get(uri, headers: request_headers(options)) do |response|
+        success = response.success?
+        status_code = response.status_code
+        body = drain_response(response)
       end
+      ApiCallResult.new(success, body, status_code, nil)
+    rescue ex : Exception # Network errors (Socket::Error, IO::Error, etc.) vary widely
+      ApiCallResult.new(false, "", nil, ex.message || ex.class.name)
     end
 
     private def stop_all(apis : String, prefix : String, options : Options, reporter : Reporter) : Nil
@@ -386,9 +383,7 @@ module Mzap
       WaitPollResult.new(status_indicates_done?(status), nil)
     end
 
-    private def status_indicates_done?(status : String?) : Bool
-      return false unless status
-
+    private def status_indicates_done?(status : String) : Bool
       normalized = status.strip.downcase
       if percentage = normalized.to_i?
         return percentage >= 100
@@ -397,7 +392,7 @@ module Mzap
       !{"running", "inprogress", "in_progress", "started", "busy"}.includes?(normalized)
     end
 
-    private def generate_reports(report_targets_by_api : Hash(String, Array(String)), options : Options, reporter : Reporter) : Nil
+    private def generate_reports(report_targets_by_api : Hash(String, Set(String)), options : Options, reporter : Reporter) : Nil
       return if report_targets_by_api.empty?
 
       outputs = resolve_report_outputs(report_targets_by_api.keys, options)
@@ -491,7 +486,7 @@ module Mzap
 
     private def generate_filtered_report(
       api_host : String,
-      targets : Array(String),
+      targets : Set(String),
       output_path : String,
       options : Options,
     ) : ApiCallResult

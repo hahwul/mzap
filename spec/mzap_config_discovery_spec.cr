@@ -7,8 +7,9 @@ describe Mzap::Config do
       Dir.mkdir_p(File.dirname(config_path))
       File.write(config_path, "sample = true\n")
 
+      loaded = Mzap::Config.load_options("")
       output = IO::Memory.new
-      Mzap::Config.show_config_notice("", output)
+      Mzap::Config.show_config_notice(loaded.path, output)
 
       output.to_s.includes?("Using config file: #{config_path}").should be_true
     end
@@ -19,8 +20,9 @@ describe Mzap::Config do
       legacy_path = File.join(temp_home, ".mzap.yaml")
       File.write(legacy_path, "sample: true\n")
 
+      loaded = Mzap::Config.load_options("")
       output = IO::Memory.new
-      Mzap::Config.show_config_notice("", output)
+      Mzap::Config.show_config_notice(loaded.path, output)
 
       output.to_s.includes?("Using config file: #{legacy_path}").should be_true
     end
@@ -34,8 +36,9 @@ describe Mzap::Config do
       File.write(preferred_path, "sample = true\n")
       File.write(legacy_path, "sample: true\n")
 
+      loaded = Mzap::Config.load_options("")
       output = IO::Memory.new
-      Mzap::Config.show_config_notice("", output)
+      Mzap::Config.show_config_notice(loaded.path, output)
 
       text = output.to_s
       text.includes?("Using config file: #{preferred_path}").should be_true
@@ -62,8 +65,9 @@ describe Mzap::Config do
       File.write(extensionless, "raw config\n")
       File.write(yaml_path, "sample: true\n")
 
+      loaded = Mzap::Config.load_options("")
       output = IO::Memory.new
-      Mzap::Config.show_config_notice("", output)
+      Mzap::Config.show_config_notice(loaded.path, output)
 
       output.to_s.includes?("Using config file: #{extensionless}").should be_true
       output.to_s.includes?("Using config file: #{yaml_path}").should be_false
@@ -76,8 +80,9 @@ describe Mzap::Config do
       Dir.mkdir_p(File.dirname(yaml_path))
       File.write(yaml_path, "sample: true\n")
 
+      loaded = Mzap::Config.load_options("")
       output = IO::Memory.new
-      Mzap::Config.show_config_notice("", output)
+      Mzap::Config.show_config_notice(loaded.path, output)
 
       output.to_s.includes?("Using config file: #{yaml_path}").should be_true
     end
@@ -91,8 +96,9 @@ describe Mzap::Config do
       File.write(default_base, "base config\n")
       File.write(legacy_path, "legacy: true\n")
 
+      loaded = Mzap::Config.load_options("")
       output = IO::Memory.new
-      Mzap::Config.show_config_notice("", output)
+      Mzap::Config.show_config_notice(loaded.path, output)
 
       text = output.to_s
       text.includes?("Using config file: #{default_base}").should be_true
@@ -109,7 +115,7 @@ describe Mzap::Config do
       loaded.path.should be_nil
 
       output = IO::Memory.new
-      Mzap::Config.show_config_notice("", output)
+      Mzap::Config.show_config_notice(loaded.path, output)
       output.to_s.should eq("")
     ensure
       if previous_home
@@ -122,7 +128,8 @@ describe Mzap::Config do
     output = IO::Memory.new
     missing_path = File.join(File.tempname("mzap-missing-config"), "config.toml")
 
-    Mzap::Config.show_config_notice(missing_path, output)
+    loaded = Mzap::Config.load_options(missing_path)
+    Mzap::Config.show_config_notice(loaded.path, output)
     output.to_s.should eq("")
   end
 end
