@@ -245,6 +245,73 @@ describe Mzap do
     end
   end
 
+  it "removes duplicate targets and warns about removed count" do
+    server = TestServer.new
+
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://dup.test", "https://dup.test", "https://unique.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file)
+        Mzap.spider(target_file, server.url, options, reporter)
+      end
+
+      requests = server.requests
+      scan_requests = requests.select { |r| r.path == Mzap::Client::SPIDER_API }
+      scan_requests.size.should eq(2)
+      targets = scan_requests.map { |r| HTTP::Params.parse(r.query || "")["url"] }
+      targets.should eq(["https://dup.test", "https://unique.test"])
+      stderr_io.to_s.includes?("removed 1 duplicate target(s)").should be_true
+    ensure
+      server.close
+    end
+  end
+
+  it "warns and returns when target file does not exist" do
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+    reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+
+    Mzap::Client.run("/tmp/definitely-nonexistent-mzap-file.txt", "http://127.0.0.1:1", Mzap::Client::SPIDER_API, Mzap::Options.new("", ""), reporter)
+
+    stderr_io.to_s.includes?("target file not found").should be_true
+  end
+
+  it "strips trailing slash from API host to avoid double slashes" do
+    server = TestServer.new
+
+    begin
+      reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
+      with_target_file(["https://trailing.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file)
+        Mzap.spider(target_file, "#{server.url}/", options, reporter)
+      end
+
+      requests = server.requests
+      requests.size.should eq(2)
+      requests[0].path.should eq(Mzap::Client::ACCESS_API)
+      requests[1].path.should eq(Mzap::Client::SPIDER_API)
+    ensure
+      server.close
+    end
+  end
+
+  it "shows transport error for empty error message" do
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+    reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+
+    with_target_file(["https://transport-empty.test"]) do |target_file|
+      options = Mzap::Options.new("", target_file)
+      Mzap.spider(target_file, "http://127.0.0.1:1", options, reporter)
+    end
+
+    stderr = stderr_io.to_s
+    stderr.includes?("error (access)").should be_true
+    stderr.includes?("error (scan)").should be_true
+  end
+
   it "counts transport failures for access and scan API calls" do
     stdout_io = IO::Memory.new
     stderr_io = IO::Memory.new

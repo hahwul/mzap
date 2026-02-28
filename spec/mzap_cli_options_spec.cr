@@ -381,6 +381,15 @@ describe Mzap::CLI do
     stderr_io.to_s.includes?("Please input value for --apikey").should be_true
   end
 
+  it "returns error when boolean flag is given a value with equals syntax" do
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+
+    code = Mzap::CLI.run(["version", "--wait=true"], stdout_io, stderr_io)
+    code.should eq(1)
+    stderr_io.to_s.includes?("Unknown option: --wait=true").should be_true
+  end
+
   it "returns error for invalid wait timeout integer in equals syntax" do
     stdout_io = IO::Memory.new
     stderr_io = IO::Memory.new

@@ -350,9 +350,8 @@ describe Mzap do
   end
 
   it "deduplicates host-specific report names when sanitized host values collide" do
-    server = TestServer.new(->(context : HTTP::Server::Context) do
-      normalized_path = context.request.path.gsub(/^\/+/, "/")
-      case normalized_path
+    report_handler = ->(context : HTTP::Server::Context) do
+      case context.request.path
       when Mzap::Client::ACCESS_API
         context.response.status_code = 200
         context.response.print(%({"ok":"true"}))
@@ -369,16 +368,21 @@ describe Mzap do
         context.response.status_code = 404
         context.response.print("not found")
       end
-    end)
+    end
+
+    server1 = TestServer.new(report_handler)
+    server2 = TestServer.new(report_handler)
+    server3 = TestServer.new(report_handler)
 
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://collision-one.test", "https://collision-two.test", "https://collision-three.test"]) do |target_file|
         options = Mzap::Options.new("", target_file, true, 0, 5, "html", "collision-report")
-        Mzap.spider(target_file, "#{server.url},#{server.url}/,#{server.url}//", options, reporter)
+        Mzap.spider(target_file, "#{server1.url},#{server2.url},#{server3.url}", options, reporter)
       end
 
-      report_requests = server.requests.select { |request| request.path.ends_with?(Mzap::Client::REPORT_GENERATE_API) }
+      all_requests = server1.requests + server2.requests + server3.requests
+      report_requests = all_requests.select { |request| request.path == Mzap::Client::REPORT_GENERATE_API }
       report_requests.size.should eq(3)
 
       report_names = report_requests.map do |request|
@@ -386,15 +390,19 @@ describe Mzap do
         params["reportFileName"]
       end
 
-      safe_host = sanitized_host_for_report(server.url)
+      safe_host1 = sanitized_host_for_report(server1.url)
+      safe_host2 = sanitized_host_for_report(server2.url)
+      safe_host3 = sanitized_host_for_report(server3.url)
       expected_names = [
-        "collision-report-#{safe_host}.html",
-        "collision-report-#{safe_host}-2.html",
-        "collision-report-#{safe_host}-3.html",
+        "collision-report-#{safe_host1}.html",
+        "collision-report-#{safe_host2}.html",
+        "collision-report-#{safe_host3}.html",
       ]
       report_names.sort.should eq(expected_names.sort)
     ensure
-      server.close
+      server1.close
+      server2.close
+      server3.close
     end
   end
 

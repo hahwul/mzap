@@ -606,6 +606,79 @@ describe Mzap do
     end
   end
 
+  it "handles float status value for wait polling" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"50"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":100.0}))
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://float-status.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file, true, 0, 5)
+        Mzap.spider(target_file, server.url, options, reporter)
+      end
+
+      stdout = stdout_io.to_s
+      stdout.includes?("scan_completed=1/1").should be_true
+      stdout.includes?("timed_out=false").should be_true
+    ensure
+      server.close
+    end
+  end
+
+  it "warns when scan ends with error status and still counts as completed" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"99"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"error"}))
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://error-status.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file, true, 0, 5)
+        Mzap.spider(target_file, server.url, options, reporter)
+      end
+
+      stderr = stderr_io.to_s
+      stdout = stdout_io.to_s
+      stderr.includes?("completed with error").should be_true
+      stderr.includes?("scan ended with status: error").should be_true
+      stdout.includes?("scan_completed=1/1").should be_true
+      stdout.includes?("timed_out=false").should be_true
+    ensure
+      server.close
+    end
+  end
+
   it "treats busy, started, and inprogress as running and waits for completion" do
     {"busy", "started", "inprogress"}.each do |running_status|
       status_calls = 0

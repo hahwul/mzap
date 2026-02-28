@@ -165,7 +165,7 @@ module Mzap
     end
 
     private def normalize_api_hosts(apis : String) : Array(String)
-      hosts = apis.split(",").map(&.strip).reject(&.empty?)
+      hosts = apis.split(",").map { |h| h.strip.gsub(/\/+$/, "") }.reject(&.empty?)
       if hosts.empty?
         raise ArgumentError.new("Please input --apis flag")
       end
@@ -316,7 +316,11 @@ module Mzap
           poll = check_scan_status(job.api_host, job.status_api, job.scan_id, options)
           if poll.completed
             completed_scan_jobs += 1
-            reporter.info("wait", "complete", job.api_host, "#{job.type}:#{job.target}")
+            if reason = poll.failure_reason
+              reporter.warn("wait", "completed with error #{reason}", job.api_host, "#{job.type}:#{job.target}")
+            else
+              reporter.info("wait", "complete", job.api_host, "#{job.type}:#{job.target}")
+            end
             last_poll_failure.delete("#{job.api_host}|#{job.type}|#{job.target}")
             true
           else
@@ -336,7 +340,11 @@ module Mzap
           poll = check_scan_status(api_host, AJAX_STATUS, nil, options)
           if poll.completed
             completed_ajax_hosts += 1
-            reporter.info("wait", "complete", api_host, "ajax-spider")
+            if reason = poll.failure_reason
+              reporter.warn("wait", "completed with error #{reason}", api_host, "ajax-spider")
+            else
+              reporter.info("wait", "complete", api_host, "ajax-spider")
+            end
             last_poll_failure.delete("#{api_host}|ajax-spider")
             true
           else
@@ -392,7 +400,13 @@ module Mzap
       if status.nil?
         return WaitPollResult.new(false, "(missing status value)")
       end
-      WaitPollResult.new(status_indicates_done?(status), nil)
+      if status_indicates_done?(status)
+        if status_indicates_error?(status)
+          return WaitPollResult.new(true, "(scan ended with status: #{status.strip})")
+        end
+        return WaitPollResult.new(true, nil)
+      end
+      WaitPollResult.new(false, nil)
     end
 
     private def status_indicates_done?(status : String) : Bool
@@ -402,6 +416,11 @@ module Mzap
       end
 
       !{"running", "inprogress", "in_progress", "started", "busy"}.includes?(normalized)
+    end
+
+    private def status_indicates_error?(status : String) : Bool
+      normalized = status.strip.downcase
+      {"error", "failed", "failure", "aborted"}.includes?(normalized)
     end
 
     private def generate_reports(report_targets_by_api : Hash(String, Set(String)), options : Options, reporter : Reporter) : Nil
