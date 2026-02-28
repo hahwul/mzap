@@ -1,15 +1,18 @@
-# BUILDER
-FROM golang:latest AS builder
-WORKDIR /go/src/app
-COPY . .
+ARG CRYSTAL_VERSION=1.19.1
 
-RUN go get -d -v ./...
-RUN go build -o mzap
+FROM crystallang/crystal:${CRYSTAL_VERSION} AS builder
 
-# RUNNING
-FROM debian:buster
-RUN mkdir /app
-COPY --from=builder /go/src/app/mzap /app/mzap
-COPY --from=builder /go/src/app/samples /app/samples
-WORKDIR /app/
-CMD ["/app/mzap"]
+WORKDIR /app
+COPY shard.yml shard.lock ./
+RUN shards install --production --frozen
+COPY src ./src
+COPY samples ./samples
+RUN mkdir -p /app/bin
+RUN crystal build --release src/mzap_cli.cr -o /app/bin/mzap
+
+FROM crystallang/crystal:${CRYSTAL_VERSION}
+
+WORKDIR /app
+COPY --from=builder /app/bin/mzap /app/mzap
+COPY --from=builder /app/samples /app/samples
+ENTRYPOINT ["/app/mzap"]

@@ -1,1 +1,5 @@
 mzap
+!src/mzap/
+!src/mzap/**
+.crystal-cache/
+bin
