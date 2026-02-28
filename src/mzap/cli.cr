@@ -151,6 +151,10 @@ module Mzap
             stdout_io.puts "Please input --urls flag"
             return 1
           end
+          unless File.exists?(options.urls)
+            stderr_io.puts "No such file: #{options.urls}"
+            return 1
+          end
           case command
           when "spider"     then Client.spider(options.urls, options.apis, zap_options, reporter)
           when "ajaxspider" then Client.ajax_spider(options.urls, options.apis, zap_options, reporter)

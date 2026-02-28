@@ -56,17 +56,29 @@ module Mzap
       scan_type = scan_type_for(prefix)
       reporter.info(scan_type, "start")
 
-      targets = [] of String
+      unless File.exists?(urls)
+        reporter.warn(scan_type, "target file not found", urls)
+        return
+      end
+
+      raw_targets = [] of String
       File.each_line(urls) do |line|
         value = line.strip
         next if value.empty?
         next if value.starts_with?('#')
-        targets << value
+        raw_targets << value
       end
 
-      if targets.empty?
+      if raw_targets.empty?
         reporter.warn(scan_type, "no targets loaded from file", urls)
         return
+      end
+
+      seen = Set(String).new
+      targets = raw_targets.select { |t| seen.add?(t) ? true : false }
+      duplicates_removed = raw_targets.size - targets.size
+      if duplicates_removed > 0
+        reporter.warn(scan_type, "removed #{duplicates_removed} duplicate target(s)")
       end
 
       api_hosts = normalize_api_hosts(apis)
@@ -80,7 +92,6 @@ module Mzap
 
       targets.each do |target|
         api_host = api_hosts[index]
-        report_targets_by_api[api_host] << target
 
         access_result = call_scan_api(target, api_host, ACCESS_API, options)
         unless access_result.success
@@ -94,6 +105,7 @@ module Mzap
           reporter.warn(scan_type, "error (scan) #{api_call_failure_reason(scan_result)}", api_host, target)
         else
           scan_success += 1
+          report_targets_by_api[api_host] << target
           reporter.info(scan_type, "added", api_host, target)
           if options.wait_enabled?
             case prefix
