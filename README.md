@@ -19,6 +19,12 @@ It dispatches targets across one or more ZAP API hosts, supports optional wait m
 
 ## Installation
 
+### Homebrew
+
+```bash
+brew install hahwul/mzap/mzap
+```
+
 ### Build From Source
 
 ```bash
