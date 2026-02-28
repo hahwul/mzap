@@ -76,6 +76,97 @@ module Mzap
       --urls string          Path to URL list file (e.g. --urls hosts.txt)
     TEXT
 
+    SCAN_FLAGS_TEXT = <<-TEXT
+    Flags:
+      --urls string          Path to URL list file (e.g. --urls hosts.txt)
+      --apis string          Comma-separated ZAP API host URLs (default "http://localhost:8090")
+      --apikey string        ZAP API key (omit when API key auth is disabled)
+      --config string        Config file path (default: $HOME/.config/mzap/config.toml)
+      --wait                 Wait for initiated scans to complete
+      --wait-interval        Poll interval in seconds while waiting (default 2)
+      --wait-timeout         Wait timeout in seconds (default 0: no timeout)
+      --report-format        Report format after scan completion (html/pdf)
+      --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
+      -h, --help             Show help
+    TEXT
+
+    HELP_SPIDER = <<-TEXT
+    Start Spider scans in ZAP
+
+    Usage:
+      mzap spider --urls <file> [flags]
+
+    Examples:
+      mzap spider --urls targets.txt --apis http://localhost:8090
+      mzap spider --urls targets.txt --apis http://localhost:8090 --wait --report-format html
+
+    #{SCAN_FLAGS_TEXT}
+    TEXT
+
+    HELP_AJAXSPIDER = <<-TEXT
+    Start Ajax Spider scans in ZAP
+
+    Usage:
+      mzap ajaxspider --urls <file> [flags]
+
+    Examples:
+      mzap ajaxspider --urls targets.txt --apis http://localhost:8090
+      mzap ajaxspider --urls targets.txt --apis http://localhost:8090 --wait
+
+    #{SCAN_FLAGS_TEXT}
+    TEXT
+
+    HELP_ASCAN = <<-TEXT
+    Start Active Scan jobs in ZAP
+
+    Usage:
+      mzap ascan --urls <file> [flags]
+
+    Examples:
+      mzap ascan --urls targets.txt --apis http://localhost:8090
+      mzap ascan --urls targets.txt --apis http://localhost:8090 --wait --report-format html
+
+    #{SCAN_FLAGS_TEXT}
+    TEXT
+
+    HELP_STOP = <<-TEXT
+    Stop running scans
+
+    Usage:
+      mzap stop <type> [flags]
+
+    Types:
+      spider       Stop all Spider scans
+      ajaxspider   Stop Ajax Spider scans
+      ascan        Stop all Active Scans
+      all          Stop all scan types
+
+    Examples:
+      mzap stop spider --apis http://localhost:8090
+      mzap stop all --apis http://localhost:8090
+
+    Flags:
+      --apis string          Comma-separated ZAP API host URLs (default "http://localhost:8090")
+      --apikey string        ZAP API key (omit when API key auth is disabled)
+      --config string        Config file path (default: $HOME/.config/mzap/config.toml)
+      -h, --help             Show help
+    TEXT
+
+    HELP_VERSION = <<-TEXT
+    Show mzap version
+
+    Usage:
+      mzap version
+    TEXT
+
+    SUBCOMMAND_HELP = {
+      "spider"     => HELP_SPIDER,
+      "ajaxspider" => HELP_AJAXSPIDER,
+      "ascan"      => HELP_ASCAN,
+      "stop"       => HELP_STOP,
+      "version"    => HELP_VERSION,
+    }
+
     def self.run(argv : Array(String) = ARGV, stdout_io : IO = STDOUT, stderr_io : IO = STDERR) : Int32
       Banner.show(stderr_io)
 
@@ -184,7 +275,15 @@ module Mzap
         when "version"
           stdout_io.puts VERSION
         when "help"
-          stdout_io.puts HELP_TEXT
+          if command_args.empty?
+            stdout_io.puts HELP_TEXT
+          elsif text = SUBCOMMAND_HELP[command_args[0]]?
+            stdout_io.puts text
+          else
+            stdout_io.puts "Unknown command: #{command_args[0]}"
+            stdout_io.puts HELP_TEXT
+            return 1
+          end
         else
           stdout_io.puts HELP_TEXT
           return 1
