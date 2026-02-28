@@ -1,99 +1,92 @@
 # AGENTS Guide for mzap
 
 ## Purpose
-- `mzap` is a Crystal CLI for multi-target OWASP ZAP scanning.
-- It dispatches targets across one or more ZAP API hosts, supports optional wait mode, and can export reports.
+`mzap` is a Crystal CLI (v2.0.0) for multi-target OWASP ZAP scanning. Dispatches targets across ZAP API hosts via round-robin, supports wait/poll mode, and exports reports.
 
 ## Tech Stack
-- Language: Crystal (`>= 1.19.1`)
-- Package manager: `shards`
-- Entry binary target: `src/mzap_cli.cr`
-- CI baseline Crystal version: `1.19.1`
+- Crystal `>= 1.19.1` (CI baseline: `1.19.1`), no external dependencies (stdlib only)
+- Package manager: `shards`, entry: `src/mzap_cli.cr`
 
 ## Repository Map
-- `src/mzap_cli.cr`
-  - Process entrypoint (`Mzap::CLI.run(ARGV)`).
-- `src/mzap/cli.cr`
-  - Global option parsing, command routing, validation, help text.
-- `src/mzap/client.cr`
-  - HTTP calls to ZAP, round-robin host selection, wait/poll logic, report generation, stop endpoints.
-- `src/mzap/options.cr`
-  - Runtime options model (`wait`, `report`, intervals, timeout).
-- `src/mzap/reporter.cr`
-  - Output formatting (`INFO` to stdout, `WARN` to stderr).
-- `src/mzap/config.cr`
-  - Optional config-file notice (`~/.mzap*`).
-- `spec/mzap_client_scan_spec.cr`
-  - Scan dispatch behavior and request/header checks.
-- `spec/mzap_client_wait_spec.cr`
-  - Wait/poll lifecycle, status parsing, timeout paths.
-- `spec/mzap_client_report_spec.cr`
-  - Report generation, output path resolution, fallback behavior.
-- `spec/mzap_client_stop_spec.cr`
-  - Stop endpoints and stop-summary behavior.
-- `spec/mzap_cli_*.cr`, `spec/mzap_config_*.cr`
-  - CLI routing/validation and config discovery/parsing coverage.
-- `spec/support/test_helpers.cr`
-  - Shared `TestServer` and test helper utilities.
-- `github-action/` + `action.yml`
-  - Docker-based GitHub Action wrapper for CLI execution.
 
-## Core Commands
-- Install deps:
-  - `shards install --frozen`
-- Build release binary:
-  - `crystal build --release src/mzap_cli.cr -o bin/mzap`
-- Run tests:
-  - `crystal spec`
-- Run CLI locally:
-  - `crystal run src/mzap_cli.cr -- version`
-  - `crystal run src/mzap_cli.cr -- spider --urls samples/target.txt --apis http://localhost:8090`
+### Source (`src/mzap/`)
+| File | Role |
+|------|------|
+| `cli.cr` | `GlobalOptions`/`ProvidedOptions` structs, command routing, flag parsing, validation, `HELP_TEXT` |
+| `client.cr` | ZAP HTTP client — scan dispatch, round-robin, wait/poll, report generation (two-step fallback), stop endpoints |
+| `options.cr` | `Options` struct (`api_key`, `urls`, `wait_for_completion`, `wait_interval_seconds`, `wait_timeout_seconds`, `report_format`, `report_out`) |
+| `config.cr` | TOML config discovery & custom parser — priority: `--config` > `~/.config/mzap/config.toml` > `~/.mzap*` |
+| `reporter.cr` | `[LEVEL] [type] [data] message` format — INFO→stdout, WARN→stderr |
+| `banner.cr` | ASCII banner with version display |
+| `version.cr` | `Mzap::VERSION` constant |
 
-## Agent Workflow
-1. Read affected files in `src/mzap/` and matching specs in `spec/mzap_*_spec.cr`.
-2. Implement changes with minimal scope.
-3. Add/update tests for behavior changes.
-4. Run `crystal spec` and, when relevant, release build command.
-5. Update `README.md` and help text when CLI behavior or flags change.
+### Specs (`spec/`)
+Naming convention: `mzap_<component>_<area>_spec.cr`. Uses in-process `TestServer` from `spec/support/test_helpers.cr`.
+
+| File | Coverage |
+|------|----------|
+| `mzap_client_scan_spec.cr` | Scan dispatch, round-robin, headers, error paths |
+| `mzap_client_wait_spec.cr` | Poll lifecycle, status parsing, timeout |
+| `mzap_client_report_spec.cr` | Report generation, fallback, multi-host naming |
+| `mzap_client_stop_spec.cr` | Stop endpoints |
+| `mzap_cli_commands_spec.cr` | Command routing, validation errors |
+| `mzap_cli_help_spec.cr` | Help text display |
+| `mzap_cli_options_spec.cr` | Flag parsing (strings, ints, `=` syntax) |
+| `mzap_config_discovery_spec.cr` | Config file discovery & priority |
+| `mzap_config_parsing_spec.cr` | TOML parsing, arrays, types, error messages |
+| `mzap_banner_spec.cr` | Banner output |
+| `mzap_options_spec.cr` | Options struct |
+| `mzap_reporter_spec.cr` | Reporter format |
+
+### Other
+- `github-action/` + `action.yml` — Docker-based GitHub Action (input: `arguments`, output: `output` via `GITHUB_OUTPUT`)
+- `samples/target.txt` — Example target URLs
+
+## Commands
+```bash
+shards install --frozen            # Install deps
+crystal build --release src/mzap_cli.cr -o bin/mzap  # Build
+crystal spec                       # Test
+crystal run src/mzap_cli.cr -- <command> [flags]      # Run locally
+```
+
+## CLI Commands & Flags
+**Commands:** `spider`, `ajaxspider`, `ascan`, `stop <mode>`, `version`, `help`
+
+**Flags:** `--config`, `--urls`, `--apis` (default `http://localhost:8090`), `--apikey`, `--wait`, `--wait-interval`, `--wait-timeout`, `--report-format` (`html`|`pdf`), `--report-out`, `-h`
+
+**Constraints:**
+- `--wait`, `--report-*` are scan-command only (`spider`, `ajaxspider`, `ascan`)
+- `--report-out` requires `--report-format`
+- `--wait-interval > 0`, `--wait-timeout >= 0` (0 = no timeout)
+- Config file values are overridden by CLI flags (`ProvidedOptions` tracks explicit flags)
+
+## Key Behaviors
+- **Round-robin dispatch**: targets distributed cyclically across `--apis` hosts
+- **API key**: sent as `X-ZAP-API-Key` header (optional)
+- **Scan flow**: ACCESS_API call → scan API call → track `ScanJob` (scan_id parsed from response)
+- **Wait polling**: status checked via type-specific status API; complete at 100% or terminal state
+- **Report fallback**: filtered report (with target `sites` param) → core report API if filtered fails
+- **Config discovery**: TOML format, custom parser (no external lib), supports `[mzap]` section and string arrays
 
 ## Change Rules
-- CLI flags:
-  - Keep `GlobalOptions`, `parse_global_options`, and `HELP_TEXT` in sync.
-  - Validate flags in `CLI.run` and cover new validation in specs.
-- Scan behavior:
-  - Keep round-robin API host dispatch unless intentionally changed.
-  - Preserve API key header behavior (`X-ZAP-API-Key`).
-  - For new scan types, add API constants, dispatch path, wait status handling, and tests.
-- Wait/report behavior:
-  - `--wait` and report options are scan-command only (`spider`, `ajaxspider`, `ascan`).
-  - Keep timeout semantics (`0` means no timeout).
-- Output behavior:
-  - Reporter output format is part of contract; avoid unnecessary format changes.
+- **CLI flags**: keep `GlobalOptions`, `ProvidedOptions`, `parse_global_options`, `apply_config_options`, and `HELP_TEXT` in sync
+- **New scan types**: add API constants + dispatch path + wait status handling + tests in `client.cr`
+- **Reporter format** is part of output contract — avoid unnecessary changes
+- **Config parser**: supports TOML subset — extend carefully with tests in `mzap_config_parsing_spec.cr`
 
-## Testing Notes
-- Reuse `TestServer` pattern in `spec/support/test_helpers.cr`.
-- Assert:
-  - Request path and query params.
-  - Header propagation (`X-ZAP-API-Key`).
-  - Non-2xx error paths.
-  - Wait completion and timeout cases when touching polling logic.
-  - Report generation endpoint and fallback behavior.
+## Testing
+- Reuse `TestServer` and helpers (`with_target_file`, `with_temp_home`) from `spec/support/test_helpers.cr`
+- Assert: request path/query, `X-ZAP-API-Key` header, round-robin distribution, non-2xx errors, wait completion/timeout, report output paths and fallback
 
-## CI and Release Notes
-- Workflows:
-  - Crystal build/test: `.github/workflows/crystal.yml`
-  - Docker image build smoke tests: `.github/workflows/docker-image.yml`
-  - Docker publish: `.github/workflows/docker-publish.yml`
-- Keep Crystal version aligned across:
-  - `shard.yml`
-  - `Dockerfile`
-  - `github-action/Dockerfile`
-  - CI workflow env
-- Version string currently lives in `src/mzap/version.cr`; update references consistently for releases.
+## CI & Version Alignment
+- Workflows: `crystal.yml` (build/test), `docker-image.yml` (smoke test), `docker-publish.yml` (GHCR, multi-platform, cosign)
+- Crystal version must stay aligned across: `shard.yml`, `Dockerfile`, `github-action/Dockerfile`, `.github/workflows/crystal.yml`
+- Version string: `src/mzap/version.cr`
 
-## Quick PR Checklist
-- [ ] `crystal spec` passes.
-- [ ] Build command passes when code path changed significantly.
-- [ ] Specs added/updated for behavior changes.
-- [ ] CLI help and README updated when flags/usage changed.
-- [ ] No breaking change to GitHub Action output contract (`GITHUB_OUTPUT` block in entrypoint).
+## PR Checklist
+- [ ] `crystal spec` passes
+- [ ] Release build passes if code path changed significantly
+- [ ] Specs added/updated for behavior changes
+- [ ] CLI help and README updated if flags/usage changed
+- [ ] No breaking change to GitHub Action output contract (`GITHUB_OUTPUT`)
