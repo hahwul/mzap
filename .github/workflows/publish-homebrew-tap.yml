@@ -1,0 +1,31 @@
+---
+name: Homebrew tap Publish
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+jobs:
+  homebrew-releaser:
+    runs-on: ubuntu-latest
+    name: homebrew-releaser
+    steps:
+      - name: Release mzap to Homebrew tap
+        uses: Justintime50/homebrew-releaser@v3
+        with:
+          homebrew_owner: hahwul
+          homebrew_tap: homebrew-mzap
+          formula_folder: Formula
+          github_token: ${{ secrets.MZAP_PUBLISH_TOKEN }}
+          commit_owner: hahwul
+          commit_email: hahwul@gmail.com
+          depends_on: |
+            "crystal"
+          install: |
+            system "shards install"
+            system "shards build --release --no-debug --production"
+            bin.install "bin/mzap"
+          test: system "{bin}/mzap", "-v"
+          update_readme_table: false
+          ignore_warnings: true
+          skip_commit: false
+          debug: false

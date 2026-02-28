@@ -1,6 +1,6 @@
 # mzap
 
-`mzap` is a Crystal CLI for multi-target OWASP ZAP scanning.
+`mzap` is a Crystal CLI for multi-target ZAP scanning.
 It dispatches targets across one or more ZAP API hosts, supports optional wait mode, and can export reports.
 
 ## Features
@@ -15,7 +15,7 @@ It dispatches targets across one or more ZAP API hosts, supports optional wait m
 ## Requirements
 
 - Crystal `>= 1.19.1`
-- A running OWASP ZAP API endpoint (or endpoints)
+- A running ZAP API endpoint (or endpoints)
 
 ## Installation
 

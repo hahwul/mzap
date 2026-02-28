@@ -1,7 +1,7 @@
 # AGENTS Guide for mzap
 
 ## Purpose
-`mzap` is a Crystal CLI (v2.0.0) for multi-target OWASP ZAP scanning. Dispatches targets across ZAP API hosts via round-robin, supports wait/poll mode, and exports reports.
+`mzap` is a Crystal CLI (v2.0.0) for multi-target ZAP scanning. Dispatches targets across ZAP API hosts via round-robin, supports wait/poll mode, and exports reports.
 
 ## Tech Stack
 - Crystal `>= 1.19.1` (CI baseline: `1.19.1`), no external dependencies (stdlib only)
