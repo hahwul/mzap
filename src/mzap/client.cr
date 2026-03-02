@@ -521,24 +521,26 @@ module Mzap
       output_path : String,
       options : Options,
     ) : ApiCallResult
-      full_path = File.expand_path(output_path)
-      report_dir = File.dirname(full_path)
-      report_name = File.basename(full_path)
-      Dir.mkdir_p(report_dir)
+      begin
+        full_path = ensure_safe_path(output_path)
+        report_dir = File.dirname(full_path)
+        report_name = File.basename(full_path)
+        Dir.mkdir_p(report_dir)
 
-      uri = URI.parse("#{api_host}#{REPORT_GENERATE_API}")
-      query = HTTP::Params.parse(uri.query || "")
-      query["template"] = options.report_format == "pdf" ? "traditional-pdf" : "traditional-html"
-      query["title"] = "mzap report"
-      query["sites"] = targets.join("|")
-      query["reportFileName"] = report_name
-      query["reportDir"] = report_dir
-      query["display"] = "false"
-      uri.query = query.to_s
+        uri = URI.parse("#{api_host}#{REPORT_GENERATE_API}")
+        query = HTTP::Params.parse(uri.query || "")
+        query["template"] = options.report_format == "pdf" ? "traditional-pdf" : "traditional-html"
+        query["title"] = "mzap report"
+        query["sites"] = targets.join("|")
+        query["reportFileName"] = report_name
+        query["reportDir"] = report_dir
+        query["display"] = "false"
+        uri.query = query.to_s
 
-      get_response(uri, options)
-    rescue ex : File::Error | IO::Error
-      ApiCallResult.new(false, "", nil, ex.message || ex.class.name)
+        get_response(uri, options)
+      rescue ex : File::Error | IO::Error
+        ApiCallResult.new(false, "", nil, ex.message || ex.class.name)
+      end
     end
 
     private def generate_core_report(api_host : String, output_path : String, options : Options) : ApiCallResult
@@ -547,12 +549,32 @@ module Mzap
       result = get_response(uri, options)
       return result unless result.success
 
-      full_path = File.expand_path(output_path)
+      full_path = ensure_safe_path(output_path)
       Dir.mkdir_p(File.dirname(full_path))
       File.write(full_path, result.body)
       ApiCallResult.new(true, result.body, result.status_code, nil)
     rescue ex : File::Error | IO::Error
       ApiCallResult.new(false, "", nil, ex.message || ex.class.name)
+    end
+
+    private def ensure_safe_path(path : String) : String
+      full_path = File.expand_path(path)
+      cwd = File.expand_path(".")
+
+      # Ensure the expanded path resides within the current directory
+      is_safe = if full_path == cwd
+                  true
+                elsif full_path.starts_with?(cwd)
+                  cwd.ends_with?(File::SEPARATOR) || full_path[cwd.size] == File::SEPARATOR
+                else
+                  false
+                end
+
+      unless is_safe
+        raise File::Error.new("Path traversal detected: '#{path}' is outside of the current directory")
+      end
+
+      full_path
     end
   end
 end
