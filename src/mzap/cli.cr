@@ -305,48 +305,59 @@ module Mzap
       while index < argv.size
         arg = argv[index]
 
-        if arg == "--wait"
-          options.wait = true
-          provided.wait = true
+        result = parse_single_option(arg, argv, index, options, provided)
+        if result
+          adv, options, provided = result
+          index += adv
+        else
+          remaining << arg
           index += 1
-          next
         end
-
-        if arg == "-h" || arg == "--help"
-          options.help = true
-          index += 1
-          next
-        end
-
-        if string_flag?(arg)
-          value = parse_string_option(arg, argv[index + 1]?, true)
-          options, provided = assign_string_option(options, provided, arg, value)
-          index += 2
-          next
-        end
-
-        if int_flag?(arg)
-          value = parse_int_option(arg, argv[index + 1]?)
-          options, provided = assign_int_option(options, provided, arg, value)
-          index += 2
-          next
-        end
-
-        parsed_equals, options, provided = parse_equals_option(arg, options, provided)
-        if parsed_equals
-          index += 1
-          next
-        end
-
-        if arg.starts_with?('-')
-          raise ArgumentError.new("Unknown option: #{arg}")
-        end
-
-        remaining << arg
-        index += 1
       end
 
       {options, remaining, provided}
+    end
+
+    private def self.parse_single_option(
+      arg : String,
+      argv : Array(String),
+      index : Int32,
+      options : GlobalOptions,
+      provided : ProvidedOptions
+    ) : {Int32, GlobalOptions, ProvidedOptions}?
+      if arg == "--wait"
+        options.wait = true
+        provided.wait = true
+        return {1, options, provided}
+      end
+
+      if arg == "-h" || arg == "--help"
+        options.help = true
+        return {1, options, provided}
+      end
+
+      if string_flag?(arg)
+        value = parse_string_option(arg, argv[index + 1]?, true)
+        options, provided = assign_string_option(options, provided, arg, value)
+        return {2, options, provided}
+      end
+
+      if int_flag?(arg)
+        value = parse_int_option(arg, argv[index + 1]?)
+        options, provided = assign_int_option(options, provided, arg, value)
+        return {2, options, provided}
+      end
+
+      parsed_equals, options, provided = parse_equals_option(arg, options, provided)
+      if parsed_equals
+        return {1, options, provided}
+      end
+
+      if arg.starts_with?('-')
+        raise ArgumentError.new("Unknown option: #{arg}")
+      end
+
+      nil
     end
 
     private def self.apply_config_options(
