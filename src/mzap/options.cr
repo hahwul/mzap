@@ -1,7 +1,10 @@
+require "http/headers"
+
 module Mzap
   struct Options
     getter api_key : String
     getter urls : String
+    getter headers : HTTP::Headers
     getter wait_for_completion : Bool
     getter wait_interval_seconds : Int32
     getter wait_timeout_seconds : Int32
@@ -15,8 +18,12 @@ module Mzap
       @wait_interval_seconds : Int32 = 2,
       @wait_timeout_seconds : Int32 = 0,
       @report_format : String = "",
-      @report_out : String = ""
+      @report_out : String = "",
     )
+      @headers = HTTP::Headers.new
+      unless @api_key.empty?
+        @headers["X-ZAP-API-Key"] = @api_key
+      end
     end
 
     def wait_enabled? : Bool
