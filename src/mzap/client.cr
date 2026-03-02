@@ -571,7 +571,7 @@ module Mzap
                 end
 
       unless is_safe
-        raise File::Error.new("Path traversal detected: '#{path}' is outside of the current directory")
+        raise File::Error.new("Path traversal detected: '#{path}' is outside of the current directory", file: path)
       end
 
       full_path
