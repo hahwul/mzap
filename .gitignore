@@ -3,3 +3,5 @@ mzap
 !src/mzap/**
 .crystal-cache/
 bin
+crystal-1.12.1-1*
+crystal-1.12.1-1-linux-x86_64.tar.gz
