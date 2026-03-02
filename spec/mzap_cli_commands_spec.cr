@@ -599,4 +599,14 @@ describe Mzap::CLI do
       server.close
     end
   end
+
+  it "rescues unexpected exceptions during execution and returns 1" do
+    stdout_io = RaisingIO.new
+    stderr_io = IO::Memory.new
+
+    code = Mzap::CLI.run(["version"], stdout_io, stderr_io)
+
+    code.should eq(1)
+    stderr_io.to_s.includes?("Mocked unexpected Exception").should be_true
+  end
 end

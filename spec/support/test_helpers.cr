@@ -87,3 +87,13 @@ def sanitized_host_for_report(value : String) : String
   normalized = value.gsub(/[^a-zA-Z0-9]+/, "-").gsub(/^-+/, "").gsub(/-+$/, "")
   normalized.empty? ? "host" : normalized
 end
+
+class RaisingIO < IO
+  def read(slice : Bytes) : Int32
+    0
+  end
+
+  def write(slice : Bytes) : Nil
+    raise Exception.new("Mocked unexpected Exception")
+  end
+end
