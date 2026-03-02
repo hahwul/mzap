@@ -709,4 +709,56 @@ describe Mzap do
       server.close
     end
   end
+
+  it "reports core report fallback generation failure when output file cannot be written" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"99"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"100"}))
+      when Mzap::Client::REPORT_GENERATE_API
+        context.response.status_code = 404
+        context.response.print("missing")
+      when Mzap::Client::HTML_REPORT_API
+        context.response.status_code = 200
+        context.response.print("<html>core report</html>")
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    blocking_dir = File.tempname("mzap-core-report-block")
+    Dir.mkdir_p(blocking_dir)
+    # The normalisation appends ".html" to the directory path if it doesn't end with it,
+    # so we need to create a directory with the exact final output path name
+    blocking_dir_with_ext = "#{blocking_dir}.html"
+    Dir.mkdir_p(blocking_dir_with_ext)
+
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://core-report-path-error.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file, true, 0, 5, "html", blocking_dir_with_ext)
+        Mzap.spider(target_file, server.url, options, reporter)
+      end
+
+      stderr = stderr_io.to_s
+      stdout = stdout_io.to_s
+      stderr.includes?("error").should be_true
+      stderr.includes?("Is a directory").should be_true
+      stdout.includes?("summary total=1 saved=0 fallback=0 failed=1").should be_true
+    ensure
+      FileUtils.rm_rf(blocking_dir)
+      FileUtils.rm_rf(blocking_dir_with_ext)
+      server.close
+    end
+  end
 end
