@@ -172,14 +172,6 @@ module Mzap
       hosts
     end
 
-    private def request_headers(options : Options) : HTTP::Headers
-      headers = HTTP::Headers.new
-      unless options.api_key.empty?
-        headers["X-ZAP-API-Key"] = options.api_key
-      end
-      headers
-    end
-
     private def build_target_uri(target : String, api_host : String, prefix : String) : URI
       uri = URI.parse("#{api_host}#{prefix}")
       query = HTTP::Params.parse(uri.query || "")
@@ -192,7 +184,7 @@ module Mzap
       success = false
       body = ""
       status_code : Int32? = nil
-      HTTP::Client.get(uri, headers: request_headers(options)) do |response|
+      HTTP::Client.get(uri, headers: options.headers) do |response|
         success = response.success?
         status_code = response.status_code
         body = drain_response(response)
@@ -243,7 +235,7 @@ module Mzap
       api_host : String,
       target : String,
       status_api : String,
-      reporter : Reporter
+      reporter : Reporter,
     ) : Nil
       scan_id = parse_scan_id(response_body)
       if scan_id
@@ -293,7 +285,7 @@ module Mzap
       scan_jobs : Array(ScanJob),
       ajax_wait_hosts : Array(String),
       options : Options,
-      reporter : Reporter = Reporter.new
+      reporter : Reporter = Reporter.new,
     ) : Nil
       pending_scan_jobs = scan_jobs.dup
       pending_ajax_hosts = ajax_wait_hosts.dup
@@ -352,7 +344,7 @@ module Mzap
       job_name : String,
       options : Options,
       reporter : Reporter,
-      last_poll_failure : Hash(String, String)
+      last_poll_failure : Hash(String, String),
     ) : {Bool, Bool}
       poll = check_scan_status(api_host, status_api, scan_id, options)
       key = "#{api_host}|#{job_name}"
@@ -515,7 +507,7 @@ module Mzap
       api_host : String,
       targets : Set(String),
       output_path : String,
-      options : Options
+      options : Options,
     ) : ApiCallResult
       full_path = File.expand_path(output_path)
       report_dir = File.dirname(full_path)

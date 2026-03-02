@@ -244,7 +244,7 @@ module Mzap
       end
     end
 
-    private def scan_with_quote_context(text : String) : Bool
+    private def scan_with_quote_context(text : String, &) : Bool
       in_quotes = false
       quote_char = '\0'
       escaped = false
