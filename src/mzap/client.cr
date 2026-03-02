@@ -61,22 +61,25 @@ module Mzap
         return
       end
 
-      raw_targets = [] of String
+      targets = [] of String
+      seen = Set(String).new
+      duplicates_removed = 0
       File.each_line(urls) do |line|
         value = line.strip
         next if value.empty?
         next if value.starts_with?('#')
-        raw_targets << value
+        if seen.add?(value)
+          targets << value
+        else
+          duplicates_removed += 1
+        end
       end
 
-      if raw_targets.empty?
+      if targets.empty? && duplicates_removed == 0
         reporter.warn(scan_type, "no targets loaded from file", urls)
         return
       end
 
-      seen = Set(String).new
-      targets = raw_targets.select { |t| seen.add?(t) ? true : false }
-      duplicates_removed = raw_targets.size - targets.size
       if duplicates_removed > 0
         reporter.warn(scan_type, "removed #{duplicates_removed} duplicate target(s)")
       end
@@ -235,7 +238,7 @@ module Mzap
       api_host : String,
       target : String,
       status_api : String,
-      reporter : Reporter,
+      reporter : Reporter
     ) : Nil
       scan_id = parse_scan_id(response_body)
       if scan_id
@@ -285,7 +288,7 @@ module Mzap
       scan_jobs : Array(ScanJob),
       ajax_wait_hosts : Array(String),
       options : Options,
-      reporter : Reporter = Reporter.new,
+      reporter : Reporter = Reporter.new
     ) : Nil
       pending_scan_jobs = scan_jobs.dup
       pending_ajax_hosts = ajax_wait_hosts.dup
@@ -344,7 +347,7 @@ module Mzap
       job_name : String,
       options : Options,
       reporter : Reporter,
-      last_poll_failure : Hash(String, String),
+      last_poll_failure : Hash(String, String)
     ) : {Bool, Bool}
       poll = check_scan_status(api_host, status_api, scan_id, options)
       key = "#{api_host}|#{job_name}"
@@ -507,7 +510,7 @@ module Mzap
       api_host : String,
       targets : Set(String),
       output_path : String,
-      options : Options,
+      options : Options
     ) : ApiCallResult
       full_path = File.expand_path(output_path)
       report_dir = File.dirname(full_path)
