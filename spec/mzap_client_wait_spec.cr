@@ -720,4 +720,38 @@ describe Mzap do
       end
     end
   end
+
+  it "gracefully handles JSON::ParseException in extract_json_value" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"1"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print("invalid json string {]}")
+      else
+        context.response.status_code = 404
+        context.response.print("not found")
+      end
+    end)
+
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://json-error.test"]) do |target_file|
+        options = Mzap::Options.new("", target_file, true, 0, 1)
+        Mzap.spider(target_file, server.url, options, reporter)
+      end
+
+      stderr = stderr_io.to_s
+      stderr.includes?("status check failed (missing status value)").should be_true
+    ensure
+      server.close
+    end
+  end
 end
