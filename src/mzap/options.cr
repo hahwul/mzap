@@ -15,7 +15,7 @@ module Mzap
       @wait_interval_seconds : Int32 = 2,
       @wait_timeout_seconds : Int32 = 0,
       @report_format : String = "",
-      @report_out : String = "",
+      @report_out : String = ""
     )
     end
 

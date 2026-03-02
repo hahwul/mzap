@@ -243,7 +243,7 @@ module Mzap
       api_host : String,
       target : String,
       status_api : String,
-      reporter : Reporter,
+      reporter : Reporter
     ) : Nil
       scan_id = parse_scan_id(response_body)
       if scan_id
@@ -293,7 +293,7 @@ module Mzap
       scan_jobs : Array(ScanJob),
       ajax_wait_hosts : Array(String),
       options : Options,
-      reporter : Reporter = Reporter.new,
+      reporter : Reporter = Reporter.new
     ) : Nil
       pending_scan_jobs = scan_jobs.dup
       pending_ajax_hosts = ajax_wait_hosts.dup
@@ -313,51 +313,17 @@ module Mzap
 
       loop do
         pending_scan_jobs.reject! do |job|
-          poll = check_scan_status(job.api_host, job.status_api, job.scan_id, options)
-          if poll.completed
-            completed_scan_jobs += 1
-            if reason = poll.failure_reason
-              reporter.warn("wait", "completed with error #{reason}", job.api_host, "#{job.type}:#{job.target}")
-            else
-              reporter.info("wait", "complete", job.api_host, "#{job.type}:#{job.target}")
-            end
-            last_poll_failure.delete("#{job.api_host}|#{job.type}|#{job.target}")
-            true
-          else
-            if reason = poll.failure_reason
-              poll_failures += 1
-              key = "#{job.api_host}|#{job.type}|#{job.target}"
-              if last_poll_failure[key]? != reason
-                reporter.warn("wait", "status check failed #{reason}", job.api_host, "#{job.type}:#{job.target}")
-                last_poll_failure[key] = reason
-              end
-            end
-            false
-          end
+          completed, failed = poll_job_status(job.api_host, job.status_api, job.scan_id, "#{job.type}:#{job.target}", options, reporter, last_poll_failure)
+          completed_scan_jobs += 1 if completed
+          poll_failures += 1 if failed
+          completed
         end
 
         pending_ajax_hosts.reject! do |api_host|
-          poll = check_scan_status(api_host, AJAX_STATUS, nil, options)
-          if poll.completed
-            completed_ajax_hosts += 1
-            if reason = poll.failure_reason
-              reporter.warn("wait", "completed with error #{reason}", api_host, "ajax-spider")
-            else
-              reporter.info("wait", "complete", api_host, "ajax-spider")
-            end
-            last_poll_failure.delete("#{api_host}|ajax-spider")
-            true
-          else
-            if reason = poll.failure_reason
-              poll_failures += 1
-              key = "#{api_host}|ajax-spider"
-              if last_poll_failure[key]? != reason
-                reporter.warn("wait", "status check failed #{reason}", api_host, "ajax-spider")
-                last_poll_failure[key] = reason
-              end
-            end
-            false
-          end
+          completed, failed = poll_job_status(api_host, AJAX_STATUS, nil, "ajax-spider", options, reporter, last_poll_failure)
+          completed_ajax_hosts += 1 if completed
+          poll_failures += 1 if failed
+          completed
         end
 
         break if pending_scan_jobs.empty? && pending_ajax_hosts.empty?
@@ -377,6 +343,36 @@ module Mzap
       end
 
       reporter.info("wait", "summary scan_completed=#{completed_scan_jobs}/#{total_scan_jobs} ajax_completed=#{completed_ajax_hosts}/#{total_ajax_hosts} poll_failures=#{poll_failures} timed_out=#{timed_out}")
+    end
+
+    private def poll_job_status(
+      api_host : String,
+      status_api : String,
+      scan_id : String?,
+      job_name : String,
+      options : Options,
+      reporter : Reporter,
+      last_poll_failure : Hash(String, String)
+    ) : {Bool, Bool}
+      poll = check_scan_status(api_host, status_api, scan_id, options)
+      key = "#{api_host}|#{job_name}"
+      if poll.completed
+        if reason = poll.failure_reason
+          reporter.warn("wait", "completed with error #{reason}", api_host, job_name)
+        else
+          reporter.info("wait", "complete", api_host, job_name)
+        end
+        last_poll_failure.delete(key)
+        {true, false}
+      elsif reason = poll.failure_reason
+        if last_poll_failure[key]? != reason
+          reporter.warn("wait", "status check failed #{reason}", api_host, job_name)
+          last_poll_failure[key] = reason
+        end
+        {false, true}
+      else
+        {false, false}
+      end
     end
 
     private def wait_timeout?(started_at : Time, timeout_seconds : Int32) : Bool
@@ -519,7 +515,7 @@ module Mzap
       api_host : String,
       targets : Set(String),
       output_path : String,
-      options : Options,
+      options : Options
     ) : ApiCallResult
       full_path = File.expand_path(output_path)
       report_dir = File.dirname(full_path)
