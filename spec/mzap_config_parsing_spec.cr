@@ -45,6 +45,25 @@ describe Mzap::Config do
     end
   end
 
+  it "returns empty FileOptions without errors for an empty TOML config" do
+    with_temp_home do |temp_home|
+      config_path = File.join(temp_home, ".config", "mzap", "config.toml")
+      Dir.mkdir_p(File.dirname(config_path))
+      File.write(config_path, "")
+
+      loaded = Mzap::Config.load_options("")
+      loaded.path.should eq(config_path)
+      loaded.apis.should be_nil
+      loaded.api_key.should be_nil
+      loaded.urls.should be_nil
+      loaded.wait.should be_nil
+      loaded.wait_interval_seconds.should be_nil
+      loaded.wait_timeout_seconds.should be_nil
+      loaded.report_format.should be_nil
+      loaded.report_out.should be_nil
+    end
+  end
+
   it "loads root-level keys and ignores unrelated tables" do
     with_temp_home do |temp_home|
       config_path = File.join(temp_home, ".config", "mzap", "config.toml")
