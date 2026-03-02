@@ -561,11 +561,13 @@ module Mzap
       full_path = File.expand_path(path)
       cwd = File.expand_path(".")
 
-      # Ensure the expanded path resides within the current directory
+      # Ensure the expanded path resides within the current directory.
+      # File.expand_path(path) always returns an absolute path.
       is_safe = if full_path == cwd
                   true
                 elsif full_path.starts_with?(cwd)
-                  cwd.ends_with?(File::SEPARATOR) || full_path[cwd.size] == File::SEPARATOR
+                  # If cwd is /app, we want to match /app/report.html but NOT /app-secret.html
+                  cwd.ends_with?(File::SEPARATOR) || (full_path.size > cwd.size && full_path[cwd.size] == File::SEPARATOR)
                 else
                   false
                 end
