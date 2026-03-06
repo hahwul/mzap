@@ -24,9 +24,9 @@ module Mzap
     HTML_REPORT_API     = "/OTHER/core/other/htmlreport/"
     PDF_REPORT_API      = "/OTHER/core/other/pdfreport/"
 
-    REPORT_TITLE        = "mzap report"
-    TEMPLATE_HTML       = "traditional-html"
-    TEMPLATE_PDF        = "traditional-pdf"
+    REPORT_TITLE  = "mzap report"
+    TEMPLATE_HTML = "traditional-html"
+    TEMPLATE_PDF  = "traditional-pdf"
 
     RUNNING_STATUSES = {"running", "inprogress", "in_progress", "started", "busy"}
     ERROR_STATUSES   = {"error", "failed", "failure", "aborted"}
@@ -245,7 +245,7 @@ module Mzap
       api_host : String,
       target : String,
       status_api : String,
-      reporter : Reporter
+      reporter : Reporter,
     ) : Nil
       scan_id = parse_scan_id(response_body)
       if scan_id
@@ -295,7 +295,7 @@ module Mzap
       scan_jobs : Array(ScanJob),
       ajax_wait_hosts : Set(String),
       options : Options,
-      reporter : Reporter = Reporter.new
+      reporter : Reporter = Reporter.new,
     ) : Nil
       pending_scan_jobs = scan_jobs.dup
       pending_ajax_hosts = ajax_wait_hosts.to_a
@@ -354,7 +354,7 @@ module Mzap
       job_name : String,
       options : Options,
       reporter : Reporter,
-      last_poll_failure : Hash(String, String)
+      last_poll_failure : Hash(String, String),
     ) : {Bool, Bool}
       poll = check_scan_status(api_host, status_api, scan_id, options)
       key = "#{api_host}|#{job_name}"
@@ -517,7 +517,7 @@ module Mzap
       api_host : String,
       targets : Set(String),
       output_path : String,
-      options : Options
+      options : Options,
     ) : ApiCallResult
       full_path = File.expand_path(output_path)
       report_dir = File.dirname(full_path)

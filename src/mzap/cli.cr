@@ -326,7 +326,7 @@ module Mzap
       argv : Array(String),
       index : Int32,
       options : GlobalOptions,
-      provided : ProvidedOptions
+      provided : ProvidedOptions,
     ) : {Int32, GlobalOptions, ProvidedOptions}?
       if arg == "--wait"
         options.wait = true
@@ -375,7 +375,7 @@ module Mzap
       options : GlobalOptions,
       config_options : Config::FileOptions,
       provided_options : ProvidedOptions,
-      scan_command : Bool
+      scan_command : Bool,
     ) : GlobalOptions
       updated = options
 
@@ -406,7 +406,7 @@ module Mzap
     private def self.parse_equals_option(
       arg : String,
       options : GlobalOptions,
-      provided : ProvidedOptions
+      provided : ProvidedOptions,
     ) : {Bool, GlobalOptions, ProvidedOptions}
       pair = split_equals_option(arg)
       return {false, options, provided} unless pair
@@ -442,7 +442,7 @@ module Mzap
       options : GlobalOptions,
       provided : ProvidedOptions,
       flag : String,
-      value : String
+      value : String,
     ) : {GlobalOptions, ProvidedOptions}
       case flag
       when "--config"
@@ -474,7 +474,7 @@ module Mzap
       options : GlobalOptions,
       provided : ProvidedOptions,
       flag : String,
-      value : Int32
+      value : Int32,
     ) : {GlobalOptions, ProvidedOptions}
       case flag
       when "--wait-interval"
