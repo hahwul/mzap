@@ -24,6 +24,13 @@ module Mzap
     HTML_REPORT_API     = "/OTHER/core/other/htmlreport/"
     PDF_REPORT_API      = "/OTHER/core/other/pdfreport/"
 
+    REPORT_TITLE  = "mzap report"
+    TEMPLATE_HTML = "traditional-html"
+    TEMPLATE_PDF  = "traditional-pdf"
+
+    RUNNING_STATUSES = {"running", "inprogress", "in_progress", "started", "busy"}
+    ERROR_STATUSES   = {"error", "failed", "failure", "aborted"}
+
     private record ApiCallResult, success : Bool, body : String, status_code : Int32?, error_message : String?
     private record ScanJob, type : String, api_host : String, target : String, scan_id : String, status_api : String
     private record WaitPollResult, completed : Bool, failure_reason : String?
@@ -87,7 +94,7 @@ module Mzap
       api_hosts = normalize_api_hosts(apis)
       index = 0
       scan_jobs = [] of ScanJob
-      ajax_wait_hosts = [] of String
+      ajax_wait_hosts = Set(String).new
       report_targets_by_api = Hash(String, Set(String)).new { |hash, key| hash[key] = Set(String).new }
       access_errors = 0
       scan_errors = 0
@@ -117,7 +124,7 @@ module Mzap
             when ASCAN_API
               register_scan_job(scan_jobs, scan_result.body, scan_type, api_host, target, ASCAN_STATUS, reporter)
             when AJAX_SPIDER_API
-              ajax_wait_hosts << api_host unless ajax_wait_hosts.includes?(api_host)
+              ajax_wait_hosts.add(api_host)
             end
           end
         end
@@ -238,7 +245,7 @@ module Mzap
       api_host : String,
       target : String,
       status_api : String,
-      reporter : Reporter
+      reporter : Reporter,
     ) : Nil
       scan_id = parse_scan_id(response_body)
       if scan_id
@@ -286,12 +293,12 @@ module Mzap
 
     private def wait_for_completion(
       scan_jobs : Array(ScanJob),
-      ajax_wait_hosts : Array(String),
+      ajax_wait_hosts : Set(String),
       options : Options,
-      reporter : Reporter = Reporter.new
+      reporter : Reporter = Reporter.new,
     ) : Nil
       pending_scan_jobs = scan_jobs.dup
-      pending_ajax_hosts = ajax_wait_hosts.dup
+      pending_ajax_hosts = ajax_wait_hosts.to_a
       if pending_scan_jobs.empty? && pending_ajax_hosts.empty?
         return
       end
@@ -347,7 +354,7 @@ module Mzap
       job_name : String,
       options : Options,
       reporter : Reporter,
-      last_poll_failure : Hash(String, String)
+      last_poll_failure : Hash(String, String),
     ) : {Bool, Bool}
       poll = check_scan_status(api_host, status_api, scan_id, options)
       key = "#{api_host}|#{job_name}"
@@ -406,12 +413,12 @@ module Mzap
         return percentage >= 100
       end
 
-      !{"running", "inprogress", "in_progress", "started", "busy"}.includes?(normalized)
+      !RUNNING_STATUSES.includes?(normalized)
     end
 
     private def status_indicates_error?(status : String) : Bool
       normalized = status.strip.downcase
-      {"error", "failed", "failure", "aborted"}.includes?(normalized)
+      ERROR_STATUSES.includes?(normalized)
     end
 
     private def generate_reports(report_targets_by_api : Hash(String, Set(String)), options : Options, reporter : Reporter) : Nil
@@ -510,7 +517,7 @@ module Mzap
       api_host : String,
       targets : Set(String),
       output_path : String,
-      options : Options
+      options : Options,
     ) : ApiCallResult
       full_path = File.expand_path(output_path)
       report_dir = File.dirname(full_path)
@@ -519,8 +526,8 @@ module Mzap
 
       uri = URI.parse("#{api_host}#{REPORT_GENERATE_API}")
       query = HTTP::Params.parse(uri.query || "")
-      query["template"] = options.report_format == "pdf" ? "traditional-pdf" : "traditional-html"
-      query["title"] = "mzap report"
+      query["template"] = options.report_format == "pdf" ? TEMPLATE_PDF : TEMPLATE_HTML
+      query["title"] = REPORT_TITLE
       query["sites"] = targets.join("|")
       query["reportFileName"] = report_name
       query["reportDir"] = report_dir

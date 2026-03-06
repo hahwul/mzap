@@ -10,7 +10,7 @@ COPY samples ./samples
 RUN mkdir -p /app/bin
 RUN crystal build --release src/mzap_cli.cr -o /app/bin/mzap
 
-FROM crystallang/crystal:${CRYSTAL_VERSION}
+FROM debian:bookworm-slim
 
 WORKDIR /app
 COPY --from=builder /app/bin/mzap /app/mzap

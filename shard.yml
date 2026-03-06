@@ -1,8 +1,12 @@
 name: mzap
 version: 2.0.0
+description: Multi-target ZAP scanning CLI tool with multi-host dispatch and report generation
 
 authors:
   - hahwul <hahwul@gmail.com>
+
+repository: https://github.com/hahwul/mzap
+homepage: https://github.com/hahwul/mzap
 
 targets:
   mzap:
