@@ -167,6 +167,9 @@ module Mzap
       "version"    => HELP_VERSION,
     }
 
+    STRING_FLAGS = {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out"}
+    INT_FLAGS    = {"--wait-interval", "--wait-timeout"}
+
     def self.run(argv : Array(String) = ARGV, stdout_io : IO = STDOUT, stderr_io : IO = STDERR) : Int32
       Banner.show(stderr_io)
 
@@ -393,11 +396,11 @@ module Mzap
     end
 
     private def self.string_flag?(arg : String) : Bool
-      {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out"}.includes?(arg)
+      STRING_FLAGS.includes?(arg)
     end
 
     private def self.int_flag?(arg : String) : Bool
-      {"--wait-interval", "--wait-timeout"}.includes?(arg)
+      INT_FLAGS.includes?(arg)
     end
 
     private def self.parse_equals_option(
