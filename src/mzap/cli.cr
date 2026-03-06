@@ -360,6 +360,14 @@ module Mzap
       nil
     end
 
+    private macro apply_config_field(updated, provided_options, config_options, provided_field, config_field, target_field)
+      unless {{provided_options}}.{{provided_field}}
+        if value = {{config_options}}.{{config_field}}
+          {{updated}}.{{target_field}} = value
+        end
+      end
+    end
+
     private def self.apply_config_options(
       options : GlobalOptions,
       config_options : Config::FileOptions,
@@ -368,61 +376,18 @@ module Mzap
     ) : GlobalOptions
       updated = options
 
-      unless provided_options.config
-        if value = config_options.path
-          updated.config = value
-        end
-      end
-
-      unless provided_options.urls
-        if value = config_options.urls
-          updated.urls = value
-        end
-      end
-
-      unless provided_options.apis
-        if value = config_options.apis
-          updated.apis = value
-        end
-      end
-
-      unless provided_options.api_key
-        if value = config_options.api_key
-          updated.api_key = value
-        end
-      end
+      apply_config_field(updated, provided_options, config_options, config, path, config)
+      apply_config_field(updated, provided_options, config_options, urls, urls, urls)
+      apply_config_field(updated, provided_options, config_options, apis, apis, apis)
+      apply_config_field(updated, provided_options, config_options, api_key, api_key, api_key)
 
       return updated unless scan_command
 
-      unless provided_options.wait
-        if value = config_options.wait
-          updated.wait = value
-        end
-      end
-
-      unless provided_options.wait_interval_seconds
-        if value = config_options.wait_interval_seconds
-          updated.wait_interval_seconds = value
-        end
-      end
-
-      unless provided_options.wait_timeout_seconds
-        if value = config_options.wait_timeout_seconds
-          updated.wait_timeout_seconds = value
-        end
-      end
-
-      unless provided_options.report_format
-        if value = config_options.report_format
-          updated.report_format = value
-        end
-      end
-
-      unless provided_options.report_out
-        if value = config_options.report_out
-          updated.report_out = value
-        end
-      end
+      apply_config_field(updated, provided_options, config_options, wait, wait, wait)
+      apply_config_field(updated, provided_options, config_options, wait_interval_seconds, wait_interval_seconds, wait_interval_seconds)
+      apply_config_field(updated, provided_options, config_options, wait_timeout_seconds, wait_timeout_seconds, wait_timeout_seconds)
+      apply_config_field(updated, provided_options, config_options, report_format, report_format, report_format)
+      apply_config_field(updated, provided_options, config_options, report_out, report_out, report_out)
 
       updated
     end

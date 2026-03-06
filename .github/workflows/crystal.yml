@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Crystal
         uses: crystal-lang/install-crystal@v1
@@ -38,6 +38,9 @@ jobs:
 
       - name: Build
         run: shards build
+
+      - name: Format check
+        run: crystal tool format --check src/ spec/
 
       - name: Test
         run: crystal spec

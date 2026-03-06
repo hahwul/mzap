@@ -24,6 +24,10 @@ module Mzap
     HTML_REPORT_API     = "/OTHER/core/other/htmlreport/"
     PDF_REPORT_API      = "/OTHER/core/other/pdfreport/"
 
+    REPORT_TITLE        = "mzap report"
+    TEMPLATE_HTML       = "traditional-html"
+    TEMPLATE_PDF        = "traditional-pdf"
+
     private record ApiCallResult, success : Bool, body : String, status_code : Int32?, error_message : String?
     private record ScanJob, type : String, api_host : String, target : String, scan_id : String, status_api : String
     private record WaitPollResult, completed : Bool, failure_reason : String?
@@ -519,8 +523,8 @@ module Mzap
 
       uri = URI.parse("#{api_host}#{REPORT_GENERATE_API}")
       query = HTTP::Params.parse(uri.query || "")
-      query["template"] = options.report_format == "pdf" ? "traditional-pdf" : "traditional-html"
-      query["title"] = "mzap report"
+      query["template"] = options.report_format == "pdf" ? TEMPLATE_PDF : TEMPLATE_HTML
+      query["title"] = REPORT_TITLE
       query["sites"] = targets.join("|")
       query["reportFileName"] = report_name
       query["reportDir"] = report_dir
