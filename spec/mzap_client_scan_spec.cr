@@ -129,10 +129,10 @@ describe Mzap do
     server = TestServer.new(->(context : HTTP::Server::Context) do
       if context.request.path == Mzap::Client::SPIDER_API
         context.response.status_code = 500
-        context.response.print("error")
+        context.response.print(%({"error":"scan failed"}))
       else
         context.response.status_code = 200
-        context.response.print("ok")
+        context.response.print(%({"ok":"true"}))
       end
     end)
 
@@ -157,7 +157,7 @@ describe Mzap do
     server = TestServer.new(->(context : HTTP::Server::Context) do
       if context.request.path == Mzap::Client::ACCESS_API
         context.response.status_code = 500
-        context.response.print("access error")
+        context.response.print(%({"error":"access error"}))
       else
         context.response.status_code = 200
         context.response.print(%({"scan":"2"}))
@@ -186,19 +186,19 @@ describe Mzap do
       case context.request.path
       when Mzap::Client::ACCESS_API
         context.response.status_code = 200
-        context.response.print("ok")
+        context.response.print(%({"ok":"true"}))
       when Mzap::Client::SPIDER_API
         target = HTTP::Params.parse(context.request.query || "")["url"]?
         if target == "https://bad.test"
           context.response.status_code = 500
-          context.response.print("scan error")
+          context.response.print(%({"error":"scan error"}))
         else
           context.response.status_code = 200
           context.response.print(%({"scan":"10"}))
         end
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -216,30 +216,6 @@ describe Mzap do
       stdout.includes?("summary targets=2 success=1 scan_errors=1 access_errors=0").should be_true
       stderr.includes?("error (scan)").should be_true
       stderr.includes?("HTTP 500").should be_true
-    ensure
-      server.close
-    end
-  end
-
-  it "uses generic scan label for custom scan prefixes" do
-    custom_prefix = "/JSON/custom/action/scan/"
-    server = TestServer.new
-
-    begin
-      stdout_io = IO::Memory.new
-      stderr_io = IO::Memory.new
-      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
-      with_target_file(["https://custom-prefix.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file)
-        Mzap::Client.run(target_file, server.url, custom_prefix, options, reporter)
-      end
-
-      paths = server.requests.map(&.path)
-      paths.includes?(Mzap::Client::ACCESS_API).should be_true
-      paths.includes?(custom_prefix).should be_true
-      stdout = stdout_io.to_s
-      stdout.includes?("[scan]").should be_true
-      stderr_io.to_s.empty?.should be_true
     ensure
       server.close
     end
@@ -273,7 +249,7 @@ describe Mzap do
     stderr_io = IO::Memory.new
     reporter = Mzap::Reporter.new(stdout_io, stderr_io)
 
-    Mzap::Client.run("/tmp/definitely-nonexistent-mzap-file.txt", "http://127.0.0.1:1", Mzap::Client::SPIDER_API, Mzap::Options.new("", ""), reporter)
+    Mzap::Client.run("/tmp/definitely-nonexistent-mzap-file.txt", "http://127.0.0.1:1", "spider", Mzap::Options.new("", ""), reporter)
 
     stderr_io.to_s.includes?("target file not found").should be_true
   end

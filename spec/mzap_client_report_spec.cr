@@ -24,7 +24,7 @@ describe Mzap do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -68,13 +68,13 @@ describe Mzap do
         context.response.print(%({"status":"100"}))
       when Mzap::Client::REPORT_GENERATE_API
         context.response.status_code = 404
-        context.response.print("missing")
+        context.response.print(%({"error":"missing"}))
       when Mzap::Client::HTML_REPORT_API
         context.response.status_code = 200
         context.response.print("<html>fallback report</html>")
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -116,13 +116,13 @@ describe Mzap do
         context.response.print(%({"status":"100"}))
       when Mzap::Client::REPORT_GENERATE_API
         context.response.status_code = 500
-        context.response.print("filtered fail")
+        context.response.print(%({"error":"filtered fail"}))
       when Mzap::Client::HTML_REPORT_API
         context.response.status_code = 500
-        context.response.print("core fail")
+        context.response.print(%({"error":"core fail"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -138,8 +138,8 @@ describe Mzap do
 
       stderr = stderr_io.to_s
       stdout = stdout_io.to_s
-      stderr.includes?("filtered generation failed (HTTP 500)").should be_true
-      stderr.includes?("error (HTTP 500)").should be_true
+      stderr.includes?("filtered generation failed").should be_true
+      stderr.includes?("HTTP 500").should be_true
       stdout.includes?("summary total=1 saved=0 fallback=0 failed=1").should be_true
     ensure
       File.delete(report_path) if File.exists?(report_path)
@@ -164,7 +164,7 @@ describe Mzap do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -181,13 +181,13 @@ describe Mzap do
         context.response.print(%({"status":"100"}))
       when Mzap::Client::REPORT_GENERATE_API
         context.response.status_code = 404
-        context.response.print("missing")
+        context.response.print(%({"error":"missing"}))
       when Mzap::Client::HTML_REPORT_API
         context.response.status_code = 200
         context.response.print("<html>fallback host report</html>")
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -204,13 +204,13 @@ describe Mzap do
         context.response.print(%({"status":"100"}))
       when Mzap::Client::REPORT_GENERATE_API
         context.response.status_code = 500
-        context.response.print("filtered fail")
+        context.response.print(%({"error":"filtered fail"}))
       when Mzap::Client::HTML_REPORT_API
         context.response.status_code = 500
-        context.response.print("core fail")
+        context.response.print(%({"error":"core fail"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -228,9 +228,9 @@ describe Mzap do
       stdout = stdout_io.to_s
       stderr = stderr_io.to_s
       stdout.includes?("summary total=3 saved=1 fallback=1 failed=1").should be_true
-      stderr.includes?("filtered generation failed (HTTP 404)").should be_true
-      stderr.includes?("filtered generation failed (HTTP 500)").should be_true
-      stderr.includes?("error (HTTP 500)").should be_true
+      stderr.includes?("filtered generation failed").should be_true
+      stderr.includes?("HTTP 404").should be_true
+      stderr.includes?("HTTP 500").should be_true
 
       fallback_file = File.join(
         File.dirname(File.expand_path(report_path)),
@@ -267,7 +267,7 @@ describe Mzap do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -310,7 +310,7 @@ describe Mzap do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end
     server1 = TestServer.new(handler)
@@ -366,7 +366,7 @@ describe Mzap do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end
 
@@ -423,7 +423,7 @@ describe Mzap do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -464,7 +464,7 @@ describe Mzap do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end
     server1 = TestServer.new(handler)
@@ -515,7 +515,7 @@ describe Mzap do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -549,13 +549,13 @@ describe Mzap do
         context.response.print(%({"status":"100"}))
       when Mzap::Client::REPORT_GENERATE_API
         context.response.status_code = 404
-        context.response.print("missing")
+        context.response.print(%({"error":"missing"}))
       when Mzap::Client::PDF_REPORT_API
         context.response.status_code = 200
         context.response.print("pdf fallback bytes")
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -598,7 +598,7 @@ describe Mzap do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -639,7 +639,7 @@ describe Mzap do
         context.response.print("<html>fallback</html>")
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -680,13 +680,13 @@ describe Mzap do
         context.response.print(%({"status":"100"}))
       when Mzap::Client::REPORT_GENERATE_API
         context.response.status_code = 404
-        context.response.print("missing")
+        context.response.print(%({"error":"missing"}))
       when Mzap::Client::HTML_REPORT_API
         context.response.status_code = 200
         context.response.print("<html>nested fallback report</html>")
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -724,13 +724,13 @@ describe Mzap do
         context.response.print(%({"status":"100"}))
       when Mzap::Client::REPORT_GENERATE_API
         context.response.status_code = 404
-        context.response.print("missing")
+        context.response.print(%({"error":"missing"}))
       when Mzap::Client::HTML_REPORT_API
         context.response.status_code = 200
         context.response.print("<html>core report</html>")
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 

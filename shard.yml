@@ -12,6 +12,10 @@ targets:
   mzap:
     main: src/mzap_cli.cr
 
+dependencies:
+  zap:
+    github: hahwul/zap.cr
+
 crystal: '>= 1.19.1'
 
 license: MIT

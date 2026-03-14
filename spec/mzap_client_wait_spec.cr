@@ -15,7 +15,7 @@ describe Mzap do
         context.response.print(%({"status":"1"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -47,10 +47,10 @@ describe Mzap do
         context.response.print(%({"scan":"6"}))
       when Mzap::Client::SPIDER_STATUS
         context.response.status_code = 500
-        context.response.print("status error")
+        context.response.print(%({"error":"status error"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -95,7 +95,7 @@ describe Mzap do
         end
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -134,7 +134,7 @@ describe Mzap do
         context.response.print(%({"status":"100"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -164,7 +164,7 @@ describe Mzap do
         context.response.print(%({"message":"started"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -206,7 +206,7 @@ describe Mzap do
         end
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -244,7 +244,7 @@ describe Mzap do
         context.response.print(%({"status":100}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -277,7 +277,7 @@ describe Mzap do
         context.response.print(%({"status":true}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -313,14 +313,14 @@ describe Mzap do
         status_calls += 1
         if status_calls <= 2
           context.response.status_code = 500
-          context.response.print("status error")
+          context.response.print(%({"error":"status error"}))
         else
           context.response.status_code = 200
           context.response.print(%({"status":"100"}))
         end
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -359,7 +359,7 @@ describe Mzap do
         context.response.print(%({"status":"100"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -378,18 +378,18 @@ describe Mzap do
     end
   end
 
-  it "warns and skips wait polling when scan response body is not valid JSON" do
+  it "warns and skips wait polling when scan response has no recognizable scan id" do
     server = TestServer.new(->(context : HTTP::Server::Context) do
       case context.request.path
       when Mzap::Client::ACCESS_API
         context.response.status_code = 200
-        context.response.print("ok")
+        context.response.print(%({"ok":"true"}))
       when Mzap::Client::SPIDER_API
         context.response.status_code = 200
-        context.response.print("not-json")
+        context.response.print(%({"message":"started"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -411,7 +411,7 @@ describe Mzap do
     end
   end
 
-  it "treats invalid status JSON as missing status in wait polling" do
+  it "treats invalid status JSON as poll failure in wait polling" do
     status_calls = 0
     server = TestServer.new(->(context : HTTP::Server::Context) do
       case context.request.path
@@ -431,7 +431,7 @@ describe Mzap do
         end
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -444,7 +444,7 @@ describe Mzap do
         Mzap.spider(target_file, server.url, options, reporter)
       end
 
-      stderr_io.to_s.includes?("status check failed (missing status value)").should be_true
+      stderr_io.to_s.includes?("status check failed").should be_true
       stdout_io.to_s.includes?("timed_out=false").should be_true
     ensure
       server.close
@@ -465,7 +465,7 @@ describe Mzap do
         context.response.print(%({"status":"100"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -500,14 +500,14 @@ describe Mzap do
         status_calls += 1
         if status_calls <= 2
           context.response.status_code = 500
-          context.response.print("status error")
+          context.response.print(%({"error":"status error"}))
         else
           context.response.status_code = 200
           context.response.print(%({"status":"stopped"}))
         end
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -536,7 +536,7 @@ describe Mzap do
       case context.request.path
       when Mzap::Client::ACCESS_API
         context.response.status_code = 200
-        context.response.print("ok")
+        context.response.print(%({"ok":"true"}))
       when Mzap::Client::AJAX_SPIDER_API
         context.response.status_code = 200
         context.response.print(%({"scan":"1"}))
@@ -546,7 +546,7 @@ describe Mzap do
         context.response.print(%({"status":"stopped"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -569,7 +569,7 @@ describe Mzap do
       case context.request.path
       when Mzap::Client::ACCESS_API
         context.response.status_code = 200
-        context.response.print("ok")
+        context.response.print(%({"ok":"true"}))
       when Mzap::Client::SPIDER_API
         context.response.status_code = 200
         context.response.print(%({"scan":"77"}))
@@ -583,7 +583,7 @@ describe Mzap do
         end
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -620,7 +620,7 @@ describe Mzap do
         context.response.print(%({"status":100.0}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -655,7 +655,7 @@ describe Mzap do
         context.response.print(%({"status":"error"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -686,7 +686,7 @@ describe Mzap do
         case context.request.path
         when Mzap::Client::ACCESS_API
           context.response.status_code = 200
-          context.response.print("ok")
+          context.response.print(%({"ok":"true"}))
         when Mzap::Client::SPIDER_API
           context.response.status_code = 200
           context.response.print(%({"scan":"88"}))
@@ -700,7 +700,7 @@ describe Mzap do
           end
         else
           context.response.status_code = 404
-          context.response.print("not found")
+          context.response.print(%({"error":"not found"}))
         end
       end)
 
@@ -721,7 +721,7 @@ describe Mzap do
     end
   end
 
-  it "gracefully handles JSON::ParseException in extract_json_value" do
+  it "gracefully handles invalid JSON in status response" do
     server = TestServer.new(->(context : HTTP::Server::Context) do
       case context.request.path
       when Mzap::Client::ACCESS_API
@@ -735,7 +735,7 @@ describe Mzap do
         context.response.print("invalid json string {]}")
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -749,7 +749,7 @@ describe Mzap do
       end
 
       stderr = stderr_io.to_s
-      stderr.includes?("status check failed (missing status value)").should be_true
+      stderr.includes?("status check failed").should be_true
     ensure
       server.close
     end

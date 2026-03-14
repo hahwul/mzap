@@ -223,7 +223,7 @@ describe Mzap::CLI do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -275,7 +275,7 @@ describe Mzap::CLI do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -330,7 +330,7 @@ describe Mzap::CLI do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -431,7 +431,7 @@ describe Mzap::CLI do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -484,7 +484,7 @@ describe Mzap::CLI do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -527,7 +527,7 @@ describe Mzap::CLI do
       case context.request.path
       when Mzap::Client::ACCESS_API
         context.response.status_code = 200
-        context.response.print("ok")
+        context.response.print(%({"ok":"true"}))
       when Mzap::Client::AJAX_SPIDER_API
         context.response.status_code = 200
         context.response.print(%({"scan":"1"}))
@@ -536,7 +536,7 @@ describe Mzap::CLI do
         context.response.print(%({"status":"stopped"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 
@@ -564,7 +564,7 @@ describe Mzap::CLI do
       case context.request.path
       when Mzap::Client::ACCESS_API
         context.response.status_code = 200
-        context.response.print("ok")
+        context.response.print(%({"ok":"true"}))
       when Mzap::Client::ASCAN_API
         context.response.status_code = 200
         context.response.print(%({"scan":"66"}))
@@ -576,7 +576,7 @@ describe Mzap::CLI do
         context.response.print(%({"result":"ok"}))
       else
         context.response.status_code = 404
-        context.response.print("not found")
+        context.response.print(%({"error":"not found"}))
       end
     end)
 

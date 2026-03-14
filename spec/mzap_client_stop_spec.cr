@@ -4,7 +4,7 @@ describe Mzap do
   it "warns when stop endpoint returns an error status" do
     server = TestServer.new(->(context : HTTP::Server::Context) do
       context.response.status_code = 500
-      context.response.print("error")
+      context.response.print(%({"error":"stop failed"}))
     end)
 
     begin
@@ -27,7 +27,7 @@ describe Mzap do
     server_success = TestServer.new
     server_fail = TestServer.new(->(context : HTTP::Server::Context) do
       context.response.status_code = 500
-      context.response.print("error")
+      context.response.print(%({"error":"stop failed"}))
     end)
 
     begin
@@ -85,9 +85,10 @@ describe Mzap do
     stdout.includes?("summary success=0 failed=2").should be_true
   end
 
-  it "handles successful empty-body responses for stop endpoints" do
+  it "handles successful JSON responses for stop endpoints" do
     server = TestServer.new(->(context : HTTP::Server::Context) do
       context.response.status_code = 200
+      context.response.print(%({"Result":"OK"}))
     end)
 
     begin

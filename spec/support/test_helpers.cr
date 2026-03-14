@@ -13,17 +13,18 @@ class TestServer
     @server = HTTP::Server.new do |context|
       request = context.request
       @lock.synchronize do
+        api_key = HTTP::Params.parse(request.query || "")["apikey"]?
         @requests << CapturedRequest.new(
           request.path,
           request.query,
-          request.headers["X-ZAP-API-Key"]?
+          api_key
         )
       end
       if @handler
         @handler.not_nil!.call(context)
       else
         context.response.status_code = 200
-        context.response.print("ok")
+        context.response.print(%({"ok":"true"}))
       end
     end
 
@@ -80,7 +81,7 @@ def with_temp_home(&block : String ->)
 end
 
 def stop_path(path : String) : String
-  path.ends_with?("?") ? path[0...-1] : path
+  path
 end
 
 def sanitized_host_for_report(value : String) : String
