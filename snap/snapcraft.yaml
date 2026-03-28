@@ -1,0 +1,45 @@
+name: mzap
+base: core24
+version: 2.0.0
+summary: Multi-target ZAP scanning CLI tool with multi-host dispatch and report generation
+description: |
+  mzap is a multi-target ZAP scanning CLI tool with multi-host dispatch
+  and report generation. It enables efficient parallel scanning across
+  multiple ZAP instances for large-scale web application security testing.
+
+grade: stable
+confinement: strict
+license: MIT
+
+apps:
+  mzap:
+    command: mzap
+    plugs:
+      - home
+      - network
+      - network-bind
+
+parts:
+  mzap:
+    source: ./
+    plugin: nil
+    override-build: |
+      curl -fsSL https://crystal-lang.org/install.sh | bash
+      shards install --production
+      shards build --release --no-debug --production
+      cp ./bin/mzap $CRAFT_PART_INSTALL/
+    build-packages:
+      - git
+      - curl
+      - pkg-config
+      - libssl-dev
+      - libxml2-dev
+      - libz-dev
+      - libyaml-dev
+      - libpcre2-dev
+      - libevent-dev
+      - libgmp-dev
+    stage-packages:
+      - libxml2
+      - zlib1g
+      - libyaml-0-2
