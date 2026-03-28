@@ -31,27 +31,27 @@ module Mzap
     private record ScanJob, type : String, api_host : String, target : String, scan_id : String, zap_client : Zap::Client
     private record WaitPollResult, completed : Bool, failure_reason : String?
 
-    def spider(urls : String, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    def spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
       run(urls, apis, "spider", options, reporter)
     end
 
-    def ajax_spider(urls : String, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    def ajax_spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
       run(urls, apis, "ajax-spider", options, reporter)
     end
 
-    def active_scan(urls : String, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    def active_scan(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
       run(urls, apis, "active-scan", options, reporter)
     end
 
-    def stop_spider(apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    def stop_spider(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
       stop_all(apis, "spider", options, reporter)
     end
 
-    def stop_active_scan(apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    def stop_active_scan(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
       stop_all(apis, "active-scan", options, reporter)
     end
 
-    def stop_ajax_spider(apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    def stop_ajax_spider(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
       stop_all(apis, "ajax-spider", options, reporter)
     end
 
@@ -302,7 +302,7 @@ module Mzap
           break
         end
 
-        sleep options.wait_interval_seconds.seconds
+        sleep Math.max(options.wait_interval_seconds, 1).seconds
       end
 
       reporter.info("wait", "summary scan_completed=#{completed_scan_jobs}/#{total_scan_jobs} ajax_completed=#{completed_ajax_hosts}/#{total_ajax_hosts} poll_failures=#{poll_failures} timed_out=#{timed_out}")

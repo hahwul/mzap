@@ -32,8 +32,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://report.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 1, 10, "html", report_path)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 1, wait_timeout_seconds: 10, report_format: "html", report_out: report_path)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       requests = server.requests
@@ -84,8 +84,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://fallback.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 1, 10, "html", report_path)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 1, wait_timeout_seconds: 10, report_format: "html", report_out: report_path)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       requests = server.requests
@@ -132,8 +132,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://report-fail.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 1, 10, "html", report_path)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 1, wait_timeout_seconds: 10, report_format: "html", report_out: report_path)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr = stderr_io.to_s
@@ -221,8 +221,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://saved.test", "https://fallback.test", "https://failed.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5, "html", report_path)
-        Mzap.spider(target_file, "#{saved_server.url},#{fallback_server.url},#{failed_server.url}", options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5, report_format: "html", report_out: report_path)
+        Mzap.spider(target_file, apis: "#{saved_server.url},#{fallback_server.url},#{failed_server.url}", options: options, reporter: reporter)
       end
 
       stdout = stdout_io.to_s
@@ -275,8 +275,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://ext.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 1, 10, "pdf", report_path)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 1, wait_timeout_seconds: 10, report_format: "pdf", report_out: report_path)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       report_request = server.requests.find { |request| request.path == Mzap::Client::REPORT_GENERATE_API }
@@ -320,8 +320,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://one.test", "https://two.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 1, 10, "pdf", report_path)
-        Mzap.spider(target_file, "#{server1.url},#{server2.url}", options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 1, wait_timeout_seconds: 10, report_format: "pdf", report_out: report_path)
+        Mzap.spider(target_file, apis: "#{server1.url},#{server2.url}", options: options, reporter: reporter)
       end
 
       full_path = File.expand_path(report_path)
@@ -377,8 +377,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://collision-one.test", "https://collision-two.test", "https://collision-three.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5, "html", "collision-report")
-        Mzap.spider(target_file, "#{server1.url},#{server2.url},#{server3.url}", options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5, report_format: "html", report_out: "collision-report")
+        Mzap.spider(target_file, apis: "#{server1.url},#{server2.url},#{server3.url}", options: options, reporter: reporter)
       end
 
       all_requests = server1.requests + server2.requests + server3.requests
@@ -430,8 +430,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://default-report.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, false, 0, 5, "html", "")
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_interval_seconds: 0, wait_timeout_seconds: 5, report_format: "html")
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       report_request = server.requests.find { |request| request.path == Mzap::Client::REPORT_GENERATE_API }
@@ -473,8 +473,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://one.test", "https://two.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5, "pdf", "scan-report")
-        Mzap.spider(target_file, "#{server1.url},#{server2.url}", options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5, report_format: "pdf", report_out: "scan-report")
+        Mzap.spider(target_file, apis: "#{server1.url},#{server2.url}", options: options, reporter: reporter)
       end
 
       expected1 = "scan-report-#{sanitized_host_for_report(server1.url)}.pdf"
@@ -522,8 +522,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://dup.test", "https://dup.test", "https://unique.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5, "html", "")
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5, report_format: "html")
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       report_request = server.requests.find { |request| request.path == Mzap::Client::REPORT_GENERATE_API }
@@ -565,8 +565,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://pdf-fallback.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5, "pdf", report_path)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5, report_format: "pdf", report_out: report_path)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       paths = server.requests.map(&.path)
@@ -606,8 +606,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://ext-case.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5, "html", report_path)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5, report_format: "html", report_out: report_path)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       report_request = server.requests.find { |request| request.path == Mzap::Client::REPORT_GENERATE_API }
@@ -651,8 +651,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://report-path-error.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5, "html", report_path)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5, report_format: "html", report_out: report_path)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr = stderr_io.to_s
@@ -697,8 +697,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://nested-fallback.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5, "html", report_path)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5, report_format: "html", report_out: report_path)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       File.exists?(report_path).should be_true
@@ -746,8 +746,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://core-report-path-error.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5, "html", blocking_dir_with_ext)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5, report_format: "html", report_out: blocking_dir_with_ext)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr = stderr_io.to_s

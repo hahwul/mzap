@@ -11,8 +11,8 @@ describe Mzap do
       stdout_io = IO::Memory.new
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
-      options = Mzap::Options.new("", "")
-      Mzap.stop_spider(server.url, options, reporter)
+      options = Mzap::Options.new
+      Mzap.stop_spider(server.url, options: options, reporter: reporter)
 
       stderr_io.to_s.includes?("error (stop)").should be_true
       stderr_io.to_s.includes?("HTTP 500").should be_true
@@ -34,8 +34,8 @@ describe Mzap do
       stdout_io = IO::Memory.new
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
-      options = Mzap::Options.new("", "")
-      Mzap.stop_spider("#{server_success.url},#{server_fail.url}", options, reporter)
+      options = Mzap::Options.new
+      Mzap.stop_spider("#{server_success.url},#{server_fail.url}", options: options, reporter: reporter)
 
       stdout = stdout_io.to_s
       stderr = stderr_io.to_s
@@ -53,10 +53,10 @@ describe Mzap do
 
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
-      options = Mzap::Options.new("stop-key", "")
-      Mzap.stop_spider(server.url, options, reporter)
-      Mzap.stop_ajax_spider(server.url, options, reporter)
-      Mzap.stop_active_scan(server.url, options, reporter)
+      options = Mzap::Options.new(api_key: "stop-key")
+      Mzap.stop_spider(server.url, options: options, reporter: reporter)
+      Mzap.stop_ajax_spider(server.url, options: options, reporter: reporter)
+      Mzap.stop_active_scan(server.url, options: options, reporter: reporter)
 
       requests = server.requests
       requests.size.should eq(3)
@@ -75,9 +75,9 @@ describe Mzap do
     stdout_io = IO::Memory.new
     stderr_io = IO::Memory.new
     reporter = Mzap::Reporter.new(stdout_io, stderr_io)
-    options = Mzap::Options.new("", "")
+    options = Mzap::Options.new
 
-    Mzap.stop_spider("http://127.0.0.1:1,http://127.0.0.1:2", options, reporter)
+    Mzap.stop_spider("http://127.0.0.1:1,http://127.0.0.1:2", options: options, reporter: reporter)
 
     stderr = stderr_io.to_s
     stdout = stdout_io.to_s
@@ -95,8 +95,8 @@ describe Mzap do
       stdout_io = IO::Memory.new
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
-      options = Mzap::Options.new("", "")
-      Mzap.stop_spider(server.url, options, reporter)
+      options = Mzap::Options.new
+      Mzap.stop_spider(server.url, options: options, reporter: reporter)
 
       stdout_io.to_s.includes?("stopped").should be_true
       stderr_io.to_s.should eq("")

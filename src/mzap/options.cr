@@ -1,7 +1,6 @@
 module Mzap
   struct Options
     getter api_key : String
-    getter urls : String
     getter wait_for_completion : Bool
     getter wait_interval_seconds : Int32
     getter wait_timeout_seconds : Int32
@@ -9,8 +8,8 @@ module Mzap
     getter report_out : String
 
     def initialize(
+      *,
       @api_key : String = "",
-      @urls : String = "",
       @wait_for_completion : Bool = false,
       @wait_interval_seconds : Int32 = 2,
       @wait_timeout_seconds : Int32 = 0,
