@@ -149,7 +149,7 @@ module Mzap
     private def with_zap_clients(api_hosts : Array(String), options : Options, &) : Nil
       clients = Hash(String, Zap::Client).new
       begin
-        api_hosts.each do |host|
+        api_hosts.uniq.each do |host|
           clients[host] = Zap::Client.new(base_url: host, api_key: options.api_key)
         end
         yield clients
@@ -178,7 +178,7 @@ module Mzap
         return stringify_json_value(value)
       end
       nil
-    rescue ex : TypeCastError | JSON::Error
+    rescue TypeCastError | JSON::Error
       nil
     end
 
@@ -200,7 +200,7 @@ module Mzap
       value = result.as_h["status"]?
       return nil unless value
       stringify_json_value(value)
-    rescue ex : TypeCastError | JSON::Error
+    rescue TypeCastError | JSON::Error
       nil
     end
 
