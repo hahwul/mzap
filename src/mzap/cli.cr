@@ -199,7 +199,7 @@ module Mzap
         return 0
       end
 
-      command_args = args.size > 1 ? args[1..] : [] of String
+      command_args = args[1..]
       reporter = Reporter.new(stdout_io, stderr_io)
       report_format = options.report_format.downcase
 
@@ -229,13 +229,12 @@ module Mzap
       end
 
       zap_options = Options.new(
-        options.api_key,
-        options.urls,
-        options.wait || !report_format.empty?,
-        options.wait_interval_seconds,
-        options.wait_timeout_seconds,
-        report_format,
-        options.report_out
+        api_key: options.api_key,
+        wait_for_completion: options.wait || !report_format.empty?,
+        wait_interval_seconds: options.wait_interval_seconds,
+        wait_timeout_seconds: options.wait_timeout_seconds,
+        report_format: report_format,
+        report_out: options.report_out,
       )
 
       begin
@@ -250,9 +249,9 @@ module Mzap
             return 1
           end
           case command
-          when "spider"     then Client.spider(options.urls, options.apis, zap_options, reporter)
-          when "ajaxspider" then Client.ajax_spider(options.urls, options.apis, zap_options, reporter)
-          when "ascan"      then Client.active_scan(options.urls, options.apis, zap_options, reporter)
+          when "spider"     then Client.spider(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
+          when "ajaxspider" then Client.ajax_spider(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
+          when "ascan"      then Client.active_scan(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
           end
         when "stop"
           if command_args.empty?
@@ -261,15 +260,15 @@ module Mzap
           else
             case command_args[0]
             when "spider"
-              Client.stop_spider(options.apis, zap_options, reporter)
+              Client.stop_spider(options.apis, options: zap_options, reporter: reporter)
             when "ascan"
-              Client.stop_active_scan(options.apis, zap_options, reporter)
+              Client.stop_active_scan(options.apis, options: zap_options, reporter: reporter)
             when "ajaxspider"
-              Client.stop_ajax_spider(options.apis, zap_options, reporter)
+              Client.stop_ajax_spider(options.apis, options: zap_options, reporter: reporter)
             when "all"
-              Client.stop_spider(options.apis, zap_options, reporter)
-              Client.stop_ajax_spider(options.apis, zap_options, reporter)
-              Client.stop_active_scan(options.apis, zap_options, reporter)
+              Client.stop_spider(options.apis, options: zap_options, reporter: reporter)
+              Client.stop_ajax_spider(options.apis, options: zap_options, reporter: reporter)
+              Client.stop_active_scan(options.apis, options: zap_options, reporter: reporter)
             else
               stdout_io.puts "Please input scanning mode for stop (spider/ascan/ajaxspider/all)"
               return 1

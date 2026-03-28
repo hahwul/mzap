@@ -8,8 +8,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://a.test", "https://b.test", "https://c.test"]) do |target_file|
-        options = Mzap::Options.new("test-key", target_file)
-        Mzap.spider(target_file, "#{server1.url},#{server2.url}", options, reporter)
+        options = Mzap::Options.new(api_key: "test-key")
+        Mzap.spider(target_file, apis: "#{server1.url},#{server2.url}", options: options, reporter: reporter)
       end
 
       requests1 = server1.requests
@@ -48,8 +48,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://ajax.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file)
-        Mzap.ajax_spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new
+        Mzap.ajax_spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       requests = server.requests
@@ -67,8 +67,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://ascan.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file)
-        Mzap.active_scan(target_file, server.url, options, reporter)
+        options = Mzap::Options.new
+        Mzap.active_scan(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       requests = server.requests
@@ -87,8 +87,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["  https://a.test  ", "", "   # comment", "https://b.test", "   "]) do |target_file|
-        options = Mzap::Options.new("", target_file)
-        Mzap.spider(target_file, " #{server1.url} , #{server2.url} ", options, reporter)
+        options = Mzap::Options.new
+        Mzap.spider(target_file, apis: " #{server1.url} , #{server2.url} ", options: options, reporter: reporter)
       end
 
       requests1 = server1.requests
@@ -114,8 +114,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["", "   ", "  # comment"]) do |target_file|
-        options = Mzap::Options.new("", target_file)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       server.requests.should be_empty
@@ -141,8 +141,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://error.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr_io.to_s.includes?("error (scan)").should be_true
@@ -169,8 +169,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://access-error.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr_io.to_s.includes?("error (access)").should be_true
@@ -207,8 +207,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://ok.test", "https://bad.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stdout = stdout_io.to_s
@@ -229,8 +229,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://dup.test", "https://dup.test", "https://unique.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       requests = server.requests
@@ -249,7 +249,7 @@ describe Mzap do
     stderr_io = IO::Memory.new
     reporter = Mzap::Reporter.new(stdout_io, stderr_io)
 
-    Mzap::Client.run("/tmp/definitely-nonexistent-mzap-file.txt", "http://127.0.0.1:1", "spider", Mzap::Options.new("", ""), reporter)
+    Mzap::Client.run("/tmp/definitely-nonexistent-mzap-file.txt", "http://127.0.0.1:1", "spider", Mzap::Options.new, reporter)
 
     stderr_io.to_s.includes?("target file not found").should be_true
   end
@@ -260,8 +260,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://trailing.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file)
-        Mzap.spider(target_file, "#{server.url}/", options, reporter)
+        options = Mzap::Options.new
+        Mzap.spider(target_file, apis: "#{server.url}/", options: options, reporter: reporter)
       end
 
       requests = server.requests
@@ -279,8 +279,8 @@ describe Mzap do
     reporter = Mzap::Reporter.new(stdout_io, stderr_io)
 
     with_target_file(["https://transport-empty.test"]) do |target_file|
-      options = Mzap::Options.new("", target_file)
-      Mzap.spider(target_file, "http://127.0.0.1:1", options, reporter)
+      options = Mzap::Options.new
+      Mzap.spider(target_file, apis: "http://127.0.0.1:1", options: options, reporter: reporter)
     end
 
     stderr = stderr_io.to_s
@@ -294,8 +294,8 @@ describe Mzap do
     reporter = Mzap::Reporter.new(stdout_io, stderr_io)
 
     with_target_file(["https://transport-fail.test"]) do |target_file|
-      options = Mzap::Options.new("", target_file)
-      Mzap.spider(target_file, "http://127.0.0.1:1", options, reporter)
+      options = Mzap::Options.new
+      Mzap.spider(target_file, apis: "http://127.0.0.1:1", options: options, reporter: reporter)
     end
 
     stderr = stderr_io.to_s

@@ -9,27 +9,27 @@ require "./mzap/cli"
 module Mzap
   extend self
 
-  def spider(urls : String, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
-    Client.spider(urls, apis, options, reporter)
+  def spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    Client.spider(urls, apis: apis, options: options, reporter: reporter)
   end
 
-  def ajax_spider(urls : String, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
-    Client.ajax_spider(urls, apis, options, reporter)
+  def ajax_spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    Client.ajax_spider(urls, apis: apis, options: options, reporter: reporter)
   end
 
-  def active_scan(urls : String, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
-    Client.active_scan(urls, apis, options, reporter)
+  def active_scan(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    Client.active_scan(urls, apis: apis, options: options, reporter: reporter)
   end
 
-  def stop_spider(apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
-    Client.stop_spider(apis, options, reporter)
+  def stop_spider(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
+    Client.stop_spider(apis, options: options, reporter: reporter)
   end
 
-  def stop_active_scan(apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
-    Client.stop_active_scan(apis, options, reporter)
+  def stop_active_scan(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
+    Client.stop_active_scan(apis, options: options, reporter: reporter)
   end
 
-  def stop_ajax_spider(apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
-    Client.stop_ajax_spider(apis, options, reporter)
+  def stop_ajax_spider(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
+    Client.stop_ajax_spider(apis, options: options, reporter: reporter)
   end
 end

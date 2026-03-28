@@ -24,8 +24,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://timeout.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 1, 1)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 1, wait_timeout_seconds: 1)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr = stderr_io.to_s
@@ -59,8 +59,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://wait-error.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 1, 1)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 1, wait_timeout_seconds: 1)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr = stderr_io.to_s
@@ -104,8 +104,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://ajax-wait.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.ajax_spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.ajax_spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       paths = server.requests.map(&.path)
@@ -141,8 +141,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://scan-id.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       status_queries.size.should eq(1)
@@ -173,8 +173,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://missing-scan-id.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       paths = server.requests.map(&.path)
@@ -215,8 +215,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://missing-status.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr = stderr_io.to_s
@@ -251,8 +251,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://numeric-id.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       status_queries.size.should eq(1)
@@ -286,8 +286,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://boolean-status.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stdout = stdout_io.to_s
@@ -329,8 +329,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://dedupe-wait-error.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr = stderr_io.to_s
@@ -366,8 +366,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://ascan-scanid.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.active_scan(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.active_scan(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       status_queries.size.should eq(1)
@@ -398,8 +398,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://invalid-json-scan.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       paths = server.requests.map(&.path)
@@ -440,8 +440,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://invalid-status-json.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr_io.to_s.includes?("status check failed").should be_true
@@ -474,8 +474,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://ascan-wait.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.active_scan(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.active_scan(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       paths = server.requests.map(&.path)
@@ -516,8 +516,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://ajax-dedupe-fail.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.ajax_spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.ajax_spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr = stderr_io.to_s
@@ -553,8 +553,8 @@ describe Mzap do
     begin
       reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
       with_target_file(["https://ajax-one.test", "https://ajax-two.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.ajax_spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.ajax_spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       ajax_status_calls.should eq(1)
@@ -592,8 +592,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://status-change.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       status_calls.should eq(2)
@@ -629,8 +629,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://float-status.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stdout = stdout_io.to_s
@@ -664,8 +664,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://error-status.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 5)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr = stderr_io.to_s
@@ -709,8 +709,8 @@ describe Mzap do
         stderr_io = IO::Memory.new
         reporter = Mzap::Reporter.new(stdout_io, stderr_io)
         with_target_file(["https://#{running_status}-status.test"]) do |target_file|
-          options = Mzap::Options.new("", target_file, true, 0, 5)
-          Mzap.spider(target_file, server.url, options, reporter)
+          options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5)
+          Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
         end
 
         status_calls.should eq(2)
@@ -744,8 +744,8 @@ describe Mzap do
       stderr_io = IO::Memory.new
       reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       with_target_file(["https://json-error.test"]) do |target_file|
-        options = Mzap::Options.new("", target_file, true, 0, 1)
-        Mzap.spider(target_file, server.url, options, reporter)
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 1)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
       stderr = stderr_io.to_s
