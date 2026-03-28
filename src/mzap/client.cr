@@ -87,72 +87,75 @@ module Mzap
       end
 
       api_hosts = normalize_api_hosts(apis)
-      clients = create_zap_clients(api_hosts, options)
-      index = 0
-      scan_jobs = [] of ScanJob
-      ajax_wait_clients = Hash(String, Zap::Client).new
-      report_targets_by_api = Hash(String, Set(String)).new { |hash, key| hash[key] = Set(String).new }
-      access_errors = 0
-      scan_errors = 0
-      scan_success = 0
+      with_zap_clients(api_hosts, options) do |clients|
+        index = 0
+        scan_jobs = [] of ScanJob
+        ajax_wait_clients = Hash(String, Zap::Client).new
+        report_targets_by_api = Hash(String, Set(String)).new { |hash, key| hash[key] = Set(String).new }
+        access_errors = 0
+        scan_errors = 0
+        scan_success = 0
 
-      targets.each do |target|
-        api_host = api_hosts[index]
-        zap_client = clients[api_host]
+        targets.each do |target|
+          api_host = api_hosts[index]
+          zap_client = clients[api_host]
 
-        begin
-          zap_client.core.access_url(target)
-        rescue ex : Exception
-          access_errors += 1
-          reporter.warn(scan_type, "error (access) #{format_error(ex)}", api_host, target)
-        end
-
-        begin
-          result = execute_scan(zap_client, scan_type, target)
-          scan_success += 1
-          report_targets_by_api[api_host] << target
-          reporter.info(scan_type, "added", api_host, target)
-
-          if options.wait_enabled?
-            case scan_type
-            when "spider", "active-scan"
-              scan_id = extract_scan_id(result)
-              if scan_id
-                scan_jobs << ScanJob.new(scan_type, api_host, target, scan_id, zap_client)
-              else
-                reporter.warn(scan_type, "missing scan id (wait disabled for target)", api_host, target)
-              end
-            when "ajax-spider"
-              ajax_wait_clients[api_host] = zap_client
-            end
+          begin
+            zap_client.core.access_url(target)
+          rescue ex : Exception
+            access_errors += 1
+            reporter.warn(scan_type, "error (access) #{format_error(ex)}", api_host, target)
           end
-        rescue ex : Exception
-          scan_errors += 1
-          reporter.warn(scan_type, "error (scan) #{format_error(ex)}", api_host, target)
+
+          begin
+            result = execute_scan(zap_client, scan_type, target)
+            scan_success += 1
+            report_targets_by_api[api_host] << target
+            reporter.info(scan_type, "added", api_host, target)
+
+            if options.wait_enabled?
+              case scan_type
+              when "spider", "active-scan"
+                scan_id = extract_scan_id(result)
+                if scan_id
+                  scan_jobs << ScanJob.new(scan_type, api_host, target, scan_id, zap_client)
+                else
+                  reporter.warn(scan_type, "missing scan id (wait disabled for target)", api_host, target)
+                end
+              when "ajax-spider"
+                ajax_wait_clients[api_host] = zap_client
+              end
+            end
+          rescue ex : Exception
+            scan_errors += 1
+            reporter.warn(scan_type, "error (scan) #{format_error(ex)}", api_host, target)
+          end
+
+          index = (index + 1) % api_hosts.size
         end
 
-        index = (index + 1) % api_hosts.size
-      end
+        reporter.info(scan_type, "summary targets=#{targets.size} success=#{scan_success} scan_errors=#{scan_errors} access_errors=#{access_errors}")
 
-      reporter.info(scan_type, "summary targets=#{targets.size} success=#{scan_success} scan_errors=#{scan_errors} access_errors=#{access_errors}")
+        if options.wait_enabled?
+          wait_for_completion(scan_jobs, ajax_wait_clients, options, reporter)
+        end
 
-      if options.wait_enabled?
-        wait_for_completion(scan_jobs, ajax_wait_clients, options, reporter)
+        if options.report_enabled?
+          generate_reports(report_targets_by_api, clients, options, reporter)
+        end
       end
-
-      if options.report_enabled?
-        generate_reports(report_targets_by_api, clients, options, reporter)
-      end
-    ensure
-      clients.try &.each_value(&.close)
     end
 
-    private def create_zap_clients(api_hosts : Array(String), options : Options) : Hash(String, Zap::Client)
+    private def with_zap_clients(api_hosts : Array(String), options : Options, &) : Nil
       clients = Hash(String, Zap::Client).new
-      api_hosts.each do |host|
-        clients[host] = Zap::Client.new(base_url: host, api_key: options.api_key)
+      begin
+        api_hosts.uniq.each do |host|
+          clients[host] = Zap::Client.new(base_url: host, api_key: options.api_key)
+        end
+        yield clients
+      ensure
+        clients.each_value(&.close)
       end
-      clients
     end
 
     private def execute_scan(zap_client : Zap::Client, scan_type : String, target : String) : JSON::Any
@@ -175,7 +178,7 @@ module Mzap
         return stringify_json_value(value)
       end
       nil
-    rescue
+    rescue TypeCastError | JSON::Error
       nil
     end
 
@@ -197,7 +200,7 @@ module Mzap
       value = result.as_h["status"]?
       return nil unless value
       stringify_json_value(value)
-    rescue
+    rescue TypeCastError | JSON::Error
       nil
     end
 
@@ -213,7 +216,7 @@ module Mzap
     end
 
     private def normalize_api_hosts(apis : String) : Array(String)
-      hosts = apis.split(",").map { |h| h.strip.gsub(/\/+$/, "") }.reject(&.empty?)
+      hosts = apis.split(",").map { |h| h.strip.rstrip('/') }.reject(&.empty?)
       if hosts.empty?
         raise ArgumentError.new("Please input --apis flag")
       end
@@ -224,30 +227,29 @@ module Mzap
       success_count = 0
       failure_count = 0
       api_hosts = normalize_api_hosts(apis)
-      clients = create_zap_clients(api_hosts, options)
 
-      api_hosts.each do |api_host|
-        zap_client = clients[api_host]
-        begin
-          case scan_type
-          when "spider"
-            zap_client.spider.stop_all
-          when "active-scan"
-            zap_client.ascan.stop_all
-          when "ajax-spider"
-            zap_client.ajax_spider.stop
+      with_zap_clients(api_hosts, options) do |clients|
+        api_hosts.each do |api_host|
+          zap_client = clients[api_host]
+          begin
+            case scan_type
+            when "spider"
+              zap_client.spider.stop_all
+            when "active-scan"
+              zap_client.ascan.stop_all
+            when "ajax-spider"
+              zap_client.ajax_spider.stop
+            end
+            success_count += 1
+            reporter.info(scan_type, "stopped", api_host)
+          rescue ex : Exception
+            failure_count += 1
+            reporter.warn(scan_type, "error (stop) #{format_error(ex)}", api_host)
           end
-          success_count += 1
-          reporter.info(scan_type, "stopped", api_host)
-        rescue ex : Exception
-          failure_count += 1
-          reporter.warn(scan_type, "error (stop) #{format_error(ex)}", api_host)
         end
       end
 
       reporter.info(scan_type, "summary success=#{success_count} failed=#{failure_count}")
-    ensure
-      clients.try &.each_value(&.close)
     end
 
     private def wait_for_completion(
@@ -511,7 +513,7 @@ module Mzap
     end
 
     private def sanitize_host(value : String) : String
-      normalized = value.gsub(/[^a-zA-Z0-9]+/, "-").gsub(/^-+/, "").gsub(/-+$/, "")
+      normalized = value.gsub(/[^a-zA-Z0-9]+/, "-").lstrip('-').rstrip('-')
       normalized.empty? ? "host" : normalized
     end
 
