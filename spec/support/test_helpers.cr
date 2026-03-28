@@ -85,7 +85,7 @@ def stop_path(path : String) : String
 end
 
 def sanitized_host_for_report(value : String) : String
-  normalized = value.gsub(/[^a-zA-Z0-9]+/, "-").gsub(/^-+/, "").gsub(/-+$/, "")
+  normalized = value.gsub(/[^a-zA-Z0-9]+/, "-").lstrip('-').rstrip('-')
   normalized.empty? ? "host" : normalized
 end
 
