@@ -12,6 +12,7 @@ module Mzap
       property report_out : String
       property concurrency : Int32
       property policy : String
+      property context : String
       property help : Bool
 
       def initialize
@@ -26,6 +27,7 @@ module Mzap
         @report_out = ""
         @concurrency = 1
         @policy = ""
+        @context = ""
         @help = false
       end
     end
@@ -42,6 +44,7 @@ module Mzap
       property report_out : Bool
       property concurrency : Bool
       property policy : Bool
+      property context : Bool
 
       def initialize
         @config = false
@@ -55,6 +58,7 @@ module Mzap
         @report_out = false
         @concurrency = false
         @policy = false
+        @context = false
       end
     end
 
@@ -76,6 +80,7 @@ module Mzap
       --apis string          Comma-separated ZAP API host URLs
                              e.g. --apis http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
       --config string        Config file path (TOML supported; default: $HOME/.config/mzap/config.toml)
+      --context string       ZAP context file to import before scanning
       --report-format        Report format after scan completion (html/pdf/json/md/sarif)
       --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
       --concurrency          Number of parallel scan dispatches (default 1)
@@ -93,6 +98,7 @@ module Mzap
       --apikey string        ZAP API key (omit when API key auth is disabled)
       --concurrency          Number of parallel scan dispatches (default 1)
       --config string        Config file path (default: $HOME/.config/mzap/config.toml)
+      --context string       ZAP context file to import before scanning
       --wait                 Wait for initiated scans to complete
       --wait-interval        Poll interval in seconds while waiting (default 2)
       --wait-timeout         Wait timeout in seconds (default 0: no timeout)
@@ -206,7 +212,7 @@ module Mzap
       "version"    => HELP_VERSION,
     }
 
-    STRING_FLAGS = {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out", "--policy"}
+    STRING_FLAGS = {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out", "--policy", "--context"}
     INT_FLAGS    = {"--wait-interval", "--wait-timeout", "--concurrency"}
 
     def self.run(argv : Array(String) = ARGV, stdout_io : IO = STDOUT, stderr_io : IO = STDERR) : Int32
@@ -247,6 +253,11 @@ module Mzap
         return 1
       end
 
+      if !options.context.empty? && !File.exists?(options.context)
+        stderr_io.puts "Context file not found: #{options.context}"
+        return 1
+      end
+
       if options.wait_interval_seconds <= 0
         stderr_io.puts "--wait-interval must be greater than 0"
         return 1
@@ -281,6 +292,7 @@ module Mzap
         report_out: options.report_out,
         concurrency: options.concurrency,
         policy: options.policy,
+        context: options.context,
       )
 
       begin
@@ -440,6 +452,7 @@ module Mzap
       apply_config_field(updated, provided_options, config_options, report_out, report_out, report_out)
       apply_config_field(updated, provided_options, config_options, concurrency, concurrency, concurrency)
       apply_config_field(updated, provided_options, config_options, policy, policy, policy)
+      apply_config_field(updated, provided_options, config_options, context, context, context)
 
       updated
     end
@@ -515,6 +528,9 @@ module Mzap
       when "--policy"
         options.policy = value
         provided.policy = true
+      when "--context"
+        options.context = value
+        provided.context = true
       else
         raise ArgumentError.new("Unknown option: #{flag}")
       end

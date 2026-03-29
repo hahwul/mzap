@@ -8,6 +8,7 @@ module Mzap
     getter report_out : String
     getter concurrency : Int32
     getter policy : String
+    getter context : String
 
     def initialize(
       *,
@@ -19,6 +20,7 @@ module Mzap
       @report_out : String = "",
       @concurrency : Int32 = 1,
       @policy : String = "",
+      @context : String = "",
     )
     end
 

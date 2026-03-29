@@ -138,6 +138,10 @@ module Mzap
 
       api_hosts = normalize_api_hosts(apis)
       with_zap_clients(api_hosts, options) do |clients|
+        if !options.context.empty?
+          import_context(clients, options.context, reporter)
+        end
+
         scan_jobs = [] of ScanJob
         ajax_wait_clients = Hash(String, Zap::Client).new
         report_targets_by_api = Hash(String, Set(String)).new { |hash, key| hash[key] = Set(String).new }
@@ -264,6 +268,18 @@ module Mzap
         end
       when "ajax-spider"
         ajax_wait_clients[api_host] = zap_client
+      end
+    end
+
+    private def import_context(clients : Hash(String, Zap::Client), context_file : String, reporter : Reporter) : Nil
+      full_path = File.expand_path(context_file)
+      clients.each do |api_host, zap_client|
+        begin
+          zap_client.context.import_context(full_path)
+          reporter.info("context", "imported", api_host, full_path)
+        rescue ex : Exception
+          reporter.warn("context", "import failed #{format_error(ex)}", api_host, full_path)
+        end
       end
     end
 
