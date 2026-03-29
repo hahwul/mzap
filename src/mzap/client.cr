@@ -85,6 +85,8 @@ module Mzap
 
         reporter.info("passive-scan", "summary completed=#{completed_hosts}/#{api_hosts.uniq.size} poll_failures=#{poll_failures} timed_out=#{timed_out}")
 
+        print_alert_summary(clients, reporter)
+
         if options.report_enabled?
           report_targets = Hash(String, Set(String)).new { |h, k| h[k] = Set(String).new }
           api_hosts.uniq.each { |host| report_targets[host] = Set(String).new }
@@ -197,6 +199,7 @@ module Mzap
 
         if options.wait_enabled?
           wait_for_completion(scan_jobs, ajax_wait_clients, options, reporter)
+          print_alert_summary(clients, reporter)
         end
 
         if options.report_enabled?
@@ -281,7 +284,27 @@ module Mzap
       end
     end
 
-    RISK_LEVELS = {"informational" => 0, "low" => 1, "medium" => 2, "high" => 3}
+    ALERTS_SUMMARY_API = "/JSON/alert/view/alertsSummary/"
+    RISK_LEVELS        = {"informational" => 0, "low" => 1, "medium" => 2, "high" => 3}
+
+    private def print_alert_summary(clients : Hash(String, Zap::Client), reporter : Reporter) : Nil
+      clients.each do |api_host, zap_client|
+        begin
+          result = zap_client.alert.alerts_summary
+          if (hash = result.as_h?) && (summary = hash["alertsSummary"]?)
+            if counts = summary.as_h?
+              high = counts["High"]?.try(&.as_i?) || 0
+              medium = counts["Medium"]?.try(&.as_i?) || 0
+              low = counts["Low"]?.try(&.as_i?) || 0
+              info = counts["Informational"]?.try(&.as_i?) || 0
+              reporter.info("alerts", "High: #{high}, Medium: #{medium}, Low: #{low}, Informational: #{info}", api_host)
+            end
+          end
+        rescue ex : Exception
+          reporter.warn("alerts", "summary fetch failed #{format_error(ex)}", api_host)
+        end
+      end
+    end
 
     private def check_fail_on(clients : Hash(String, Zap::Client), options : Options, reporter : Reporter) : Bool
       min_risk = RISK_LEVELS[options.fail_on]? || 0
