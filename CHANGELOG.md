@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.1.1
+
+### Fixed
+- Sync version across shard.yml, version.cr, and snapcraft.yaml
+
 ## v2.1.0
 
 ### Added

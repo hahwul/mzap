@@ -1,3 +1,3 @@
 module Mzap
-  VERSION = "v2.0.0"
+  VERSION = "v2.1.1"
 end
