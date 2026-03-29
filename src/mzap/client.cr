@@ -231,14 +231,18 @@ module Mzap
       scan_success = 0
 
       begin
-        zap_client.core.access_url(target)
+        with_retry(options.retry_count, options.retry_delay_seconds, reporter, scan_type, "access", api_host, target) do
+          zap_client.core.access_url(target)
+        end
       rescue ex : Exception
         access_errors = 1
         reporter.warn(scan_type, "error (access) #{format_error(ex)}", api_host, target)
       end
 
       begin
-        result = execute_scan(zap_client, scan_type, target, options.policy)
+        result = with_retry(options.retry_count, options.retry_delay_seconds, reporter, scan_type, "scan", api_host, target) do
+          execute_scan(zap_client, scan_type, target, options.policy)
+        end
         scan_success = 1
         job_client = wait_client || zap_client
         if mutex
@@ -333,6 +337,22 @@ module Mzap
       end
 
       failed
+    end
+
+    private def with_retry(max_retries : Int32, delay_seconds : Int32, reporter : Reporter, scan_type : String, operation : String, api_host : String, target : String, &)
+      attempt = 0
+      loop do
+        begin
+          return yield
+        rescue ex : Exception
+          attempt += 1
+          if attempt > max_retries
+            raise ex
+          end
+          reporter.warn(scan_type, "#{operation} failed #{format_error(ex)}, retry #{attempt}/#{max_retries}", api_host, target)
+          sleep delay_seconds.seconds if delay_seconds > 0
+        end
+      end
     end
 
     private def import_context(clients : Hash(String, Zap::Client), context_file : String, reporter : Reporter) : Nil

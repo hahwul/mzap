@@ -14,6 +14,8 @@ module Mzap
       property policy : String
       property context : String
       property fail_on : String
+      property retry_count : Int32
+      property retry_delay_seconds : Int32
       property help : Bool
 
       def initialize
@@ -30,6 +32,8 @@ module Mzap
         @policy = ""
         @context = ""
         @fail_on = ""
+        @retry_count = 0
+        @retry_delay_seconds = 5
         @help = false
       end
     end
@@ -48,6 +52,8 @@ module Mzap
       property policy : Bool
       property context : Bool
       property fail_on : Bool
+      property retry_count : Bool
+      property retry_delay_seconds : Bool
 
       def initialize
         @config = false
@@ -63,6 +69,8 @@ module Mzap
         @policy = false
         @context = false
         @fail_on = false
+        @retry_count = false
+        @retry_delay_seconds = false
       end
     end
 
@@ -219,7 +227,7 @@ module Mzap
     }
 
     STRING_FLAGS = {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out", "--policy", "--context", "--fail-on"}
-    INT_FLAGS    = {"--wait-interval", "--wait-timeout", "--concurrency"}
+    INT_FLAGS    = {"--wait-interval", "--wait-timeout", "--concurrency", "--retry", "--retry-delay"}
 
     def self.run(argv : Array(String) = ARGV, stdout_io : IO = STDOUT, stderr_io : IO = STDERR) : Int32
       Banner.show(stderr_io)
@@ -258,6 +266,16 @@ module Mzap
 
       if options.concurrency <= 0
         stderr_io.puts "--concurrency must be greater than 0"
+        return 1
+      end
+
+      if options.retry_count < 0
+        stderr_io.puts "--retry must be 0 or greater"
+        return 1
+      end
+
+      if options.retry_delay_seconds < 0
+        stderr_io.puts "--retry-delay must be 0 or greater"
         return 1
       end
 
@@ -308,6 +326,8 @@ module Mzap
         policy: options.policy,
         context: options.context,
         fail_on: fail_on,
+        retry_count: options.retry_count,
+        retry_delay_seconds: options.retry_delay_seconds,
       )
 
       stdin_temp_file : String? = nil
@@ -483,6 +503,8 @@ module Mzap
       apply_config_field(updated, provided_options, config_options, policy, policy, policy)
       apply_config_field(updated, provided_options, config_options, context, context, context)
       apply_config_field(updated, provided_options, config_options, fail_on, fail_on, fail_on)
+      apply_config_field(updated, provided_options, config_options, retry_count, retry_count, retry_count)
+      apply_config_field(updated, provided_options, config_options, retry_delay_seconds, retry_delay_seconds, retry_delay_seconds)
 
       updated
     end
@@ -561,6 +583,20 @@ module Mzap
       unless provided_options.fail_on
         if value = ENV["MZAP_FAIL_ON"]?
           updated.fail_on = value unless value.empty?
+        end
+      end
+      unless provided_options.retry_count
+        if value = ENV["MZAP_RETRY"]?
+          if parsed = value.to_i?
+            updated.retry_count = parsed
+          end
+        end
+      end
+      unless provided_options.retry_delay_seconds
+        if value = ENV["MZAP_RETRY_DELAY"]?
+          if parsed = value.to_i?
+            updated.retry_delay_seconds = parsed
+          end
         end
       end
 
@@ -667,6 +703,12 @@ module Mzap
       when "--concurrency"
         options.concurrency = value
         provided.concurrency = true
+      when "--retry"
+        options.retry_count = value
+        provided.retry_count = true
+      when "--retry-delay"
+        options.retry_delay_seconds = value
+        provided.retry_delay_seconds = true
       else
         raise ArgumentError.new("Unknown option: #{flag}")
       end

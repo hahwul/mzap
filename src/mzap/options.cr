@@ -10,6 +10,8 @@ module Mzap
     getter policy : String
     getter context : String
     getter fail_on : String
+    getter retry_count : Int32
+    getter retry_delay_seconds : Int32
 
     def initialize(
       *,
@@ -23,6 +25,8 @@ module Mzap
       @policy : String = "",
       @context : String = "",
       @fail_on : String = "",
+      @retry_count : Int32 = 0,
+      @retry_delay_seconds : Int32 = 5,
     )
     end
 

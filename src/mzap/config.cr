@@ -22,6 +22,8 @@ module Mzap
       property policy : String?
       property context : String?
       property fail_on : String?
+      property retry_count : Int32?
+      property retry_delay_seconds : Int32?
 
       def initialize
         @path = nil
@@ -37,6 +39,8 @@ module Mzap
         @policy = nil
         @context = nil
         @fail_on = nil
+        @retry_count = nil
+        @retry_delay_seconds = nil
       end
     end
 
@@ -152,6 +156,10 @@ module Mzap
         options.context = parse_toml_string(raw_value, key, path, line_number)
       when "fail_on"
         options.fail_on = parse_toml_string(raw_value, key, path, line_number)
+      when "retry", "retry_count"
+        options.retry_count = parse_toml_int(raw_value, key, path, line_number)
+      when "retry_delay", "retry_delay_seconds"
+        options.retry_delay_seconds = parse_toml_int(raw_value, key, path, line_number)
       end
     end
 
