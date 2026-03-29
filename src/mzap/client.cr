@@ -13,6 +13,8 @@ module Mzap
     ASCAN_STATUS    = "/JSON/ascan/view/status/"
     AJAX_STATUS     = "/JSON/ajaxSpider/view/status/"
 
+    PSCAN_RECORDS_TO_SCAN = "/JSON/pscan/view/recordsToScan/"
+
     SPIDER_STOP      = "/JSON/spider/action/stopAllScans/"
     ASCAN_STOP       = "/JSON/ascan/action/stopAllScans/"
     AJAX_SPIDER_STOP = "/JSON/ajaxSpider/action/stop/"
@@ -41,6 +43,51 @@ module Mzap
 
     def active_scan(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
       run(urls, apis, "active-scan", options, reporter)
+    end
+
+    def passive_scan(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
+      reporter.info("passive-scan", "start")
+
+      api_hosts = normalize_api_hosts(apis)
+      with_zap_clients(api_hosts, options) do |clients|
+        pending = api_hosts.uniq.map { |host| {host, clients[host]} }
+        reporter.info("passive-scan", "waiting for #{pending.size} host(s)")
+
+        started_at = Time.utc
+        poll_failures = 0
+        completed_hosts = 0
+        timed_out = false
+        last_poll_failure = {} of String => String
+
+        loop do
+          pending.reject! do |(api_host, zap_client)|
+            completed, failed = poll_pscan_status(api_host, zap_client, reporter, last_poll_failure)
+            completed_hosts += 1 if completed
+            poll_failures += 1 if failed
+            completed
+          end
+
+          break if pending.empty?
+
+          if wait_timeout?(started_at, options.wait_timeout_seconds)
+            timed_out = true
+            pending.each do |(api_host, _)|
+              reporter.warn("passive-scan", "timeout", api_host)
+            end
+            break
+          end
+
+          sleep Math.max(options.wait_interval_seconds, 1).seconds
+        end
+
+        reporter.info("passive-scan", "summary completed=#{completed_hosts}/#{api_hosts.uniq.size} poll_failures=#{poll_failures} timed_out=#{timed_out}")
+
+        if options.report_enabled?
+          report_targets = Hash(String, Set(String)).new { |h, k| h[k] = Set(String).new }
+          api_hosts.uniq.each { |host| report_targets[host] = Set(String).new }
+          generate_reports(report_targets, clients, options, reporter)
+        end
+      end
     end
 
     def stop_spider(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
@@ -370,6 +417,54 @@ module Mzap
         reason = format_error(ex)
         if last_poll_failure[key]? != reason
           reporter.warn("wait", "status check failed #{reason}", api_host, "ajax-spider")
+          last_poll_failure[key] = reason
+        end
+        {false, true}
+      end
+    end
+
+    private def poll_pscan_status(
+      api_host : String,
+      zap_client : Zap::Client,
+      reporter : Reporter,
+      last_poll_failure : Hash(String, String),
+    ) : {Bool, Bool}
+      key = "#{api_host}|passive-scan"
+
+      begin
+        result = zap_client.pscan.records_to_scan
+        records_value = result.as_h["recordsToScan"]?
+        if records_value.nil?
+          reason = "(missing recordsToScan value)"
+          if last_poll_failure[key]? != reason
+            reporter.warn("passive-scan", "status check failed #{reason}", api_host)
+            last_poll_failure[key] = reason
+          end
+          return {false, true}
+        end
+
+        records_str = stringify_json_value(records_value)
+        records = records_str.to_i?
+        if records.nil?
+          reason = "(invalid recordsToScan value: #{records_str})"
+          if last_poll_failure[key]? != reason
+            reporter.warn("passive-scan", "status check failed #{reason}", api_host)
+            last_poll_failure[key] = reason
+          end
+          return {false, true}
+        end
+
+        if records <= 0
+          reporter.info("passive-scan", "complete", api_host)
+          last_poll_failure.delete(key)
+          {true, false}
+        else
+          {false, false}
+        end
+      rescue ex : Exception
+        reason = format_error(ex)
+        if last_poll_failure[key]? != reason
+          reporter.warn("passive-scan", "status check failed #{reason}", api_host)
           last_poll_failure[key] = reason
         end
         {false, true}

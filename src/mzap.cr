@@ -21,6 +21,10 @@ module Mzap
     Client.active_scan(urls, apis: apis, options: options, reporter: reporter)
   end
 
+  def passive_scan(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
+    Client.passive_scan(apis, options: options, reporter: reporter)
+  end
+
   def stop_spider(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
     Client.stop_spider(apis, options: options, reporter: reporter)
   end

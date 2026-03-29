@@ -58,6 +58,7 @@ module Mzap
       ajaxspider  Start Ajax Spider scans in ZAP
       ascan       Start Active Scan jobs in ZAP
       help        Show help for a command
+      pscan       Wait for Passive Scan completion in ZAP
       spider      Start Spider scans in ZAP
       stop        Stop running scans
       version     Show mzap version
@@ -129,6 +130,31 @@ module Mzap
     #{SCAN_FLAGS_TEXT}
     TEXT
 
+    PSCAN_FLAGS_TEXT = <<-TEXT
+    Flags:
+      --apis string          Comma-separated ZAP API host URLs (default "http://localhost:8090")
+      --apikey string        ZAP API key (omit when API key auth is disabled)
+      --config string        Config file path (default: $HOME/.config/mzap/config.toml)
+      --wait-interval        Poll interval in seconds while waiting (default 2)
+      --wait-timeout         Wait timeout in seconds (default 0: no timeout)
+      --report-format        Report format after scan completion (html/pdf)
+      --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
+      -h, --help             Show help
+    TEXT
+
+    HELP_PSCAN = <<-TEXT
+    Wait for Passive Scan completion in ZAP
+
+    Usage:
+      mzap pscan [flags]
+
+    Examples:
+      mzap pscan --apis http://localhost:8090
+      mzap pscan --apis http://localhost:8090 --wait-timeout 300 --report-format html
+
+    #{PSCAN_FLAGS_TEXT}
+    TEXT
+
     HELP_STOP = <<-TEXT
     Stop running scans
 
@@ -163,6 +189,7 @@ module Mzap
       "spider"     => HELP_SPIDER,
       "ajaxspider" => HELP_AJAXSPIDER,
       "ascan"      => HELP_ASCAN,
+      "pscan"      => HELP_PSCAN,
       "stop"       => HELP_STOP,
       "version"    => HELP_VERSION,
     }
@@ -180,7 +207,7 @@ module Mzap
         return 1
       end
 
-      scan_commands = {"spider", "ajaxspider", "ascan"}
+      scan_commands = {"spider", "ajaxspider", "ascan", "pscan"}
       command = args.empty? ? "" : args[0]
       scan_command = scan_commands.includes?(command)
 
@@ -224,13 +251,13 @@ module Mzap
       end
 
       if (options.wait || !report_format.empty?) && !scan_commands.includes?(command)
-        stderr_io.puts "--wait and report options are only available for spider/ajaxspider/ascan"
+        stderr_io.puts "--wait and report options are only available for spider/ajaxspider/ascan/pscan"
         return 1
       end
 
       zap_options = Options.new(
         api_key: options.api_key,
-        wait_for_completion: options.wait || !report_format.empty?,
+        wait_for_completion: command == "pscan" ? true : (options.wait || !report_format.empty?),
         wait_interval_seconds: options.wait_interval_seconds,
         wait_timeout_seconds: options.wait_timeout_seconds,
         report_format: report_format,
@@ -253,6 +280,8 @@ module Mzap
           when "ajaxspider" then Client.ajax_spider(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
           when "ascan"      then Client.active_scan(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
           end
+        when "pscan"
+          Client.passive_scan(options.apis, options: zap_options, reporter: reporter)
         when "stop"
           if command_args.empty?
             stdout_io.puts "Please input scanning mode for stop"
