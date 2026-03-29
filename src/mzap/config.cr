@@ -18,6 +18,7 @@ module Mzap
       property wait_timeout_seconds : Int32?
       property report_format : String?
       property report_out : String?
+      property concurrency : Int32?
 
       def initialize
         @path = nil
@@ -29,6 +30,7 @@ module Mzap
         @wait_timeout_seconds = nil
         @report_format = nil
         @report_out = nil
+        @concurrency = nil
       end
     end
 
@@ -136,6 +138,8 @@ module Mzap
         options.report_format = parse_toml_string(raw_value, key, path, line_number)
       when "report_out"
         options.report_out = parse_toml_string(raw_value, key, path, line_number)
+      when "concurrency"
+        options.concurrency = parse_toml_int(raw_value, key, path, line_number)
       end
     end
 

@@ -6,6 +6,7 @@ module Mzap
     getter wait_timeout_seconds : Int32
     getter report_format : String
     getter report_out : String
+    getter concurrency : Int32
 
     def initialize(
       *,
@@ -15,6 +16,7 @@ module Mzap
       @wait_timeout_seconds : Int32 = 0,
       @report_format : String = "",
       @report_out : String = "",
+      @concurrency : Int32 = 1,
     )
     end
 

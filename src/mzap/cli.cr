@@ -10,6 +10,7 @@ module Mzap
       property wait_timeout_seconds : Int32
       property report_format : String
       property report_out : String
+      property concurrency : Int32
       property help : Bool
 
       def initialize
@@ -22,6 +23,7 @@ module Mzap
         @wait_timeout_seconds = 0
         @report_format = ""
         @report_out = ""
+        @concurrency = 1
         @help = false
       end
     end
@@ -36,6 +38,7 @@ module Mzap
       property wait_timeout_seconds : Bool
       property report_format : Bool
       property report_out : Bool
+      property concurrency : Bool
 
       def initialize
         @config = false
@@ -47,6 +50,7 @@ module Mzap
         @wait_timeout_seconds = false
         @report_format = false
         @report_out = false
+        @concurrency = false
       end
     end
 
@@ -70,6 +74,7 @@ module Mzap
       --config string        Config file path (TOML supported; default: $HOME/.config/mzap/config.toml)
       --report-format        Report format after scan completion (html/pdf/json/md/sarif)
       --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
+      --concurrency          Number of parallel scan dispatches (default 1)
       --wait                 Wait for initiated scans to complete
       --wait-interval        Poll interval in seconds while waiting (default 2)
       --wait-timeout         Wait timeout in seconds (default 0: no timeout)
@@ -82,6 +87,7 @@ module Mzap
       --urls string          Path to URL list file (e.g. --urls hosts.txt)
       --apis string          Comma-separated ZAP API host URLs (default "http://localhost:8090")
       --apikey string        ZAP API key (omit when API key auth is disabled)
+      --concurrency          Number of parallel scan dispatches (default 1)
       --config string        Config file path (default: $HOME/.config/mzap/config.toml)
       --wait                 Wait for initiated scans to complete
       --wait-interval        Poll interval in seconds while waiting (default 2)
@@ -195,7 +201,7 @@ module Mzap
     }
 
     STRING_FLAGS = {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out"}
-    INT_FLAGS    = {"--wait-interval", "--wait-timeout"}
+    INT_FLAGS    = {"--wait-interval", "--wait-timeout", "--concurrency"}
 
     def self.run(argv : Array(String) = ARGV, stdout_io : IO = STDOUT, stderr_io : IO = STDERR) : Int32
       Banner.show(stderr_io)
@@ -230,6 +236,11 @@ module Mzap
       reporter = Reporter.new(stdout_io, stderr_io)
       report_format = options.report_format.downcase
 
+      if options.concurrency <= 0
+        stderr_io.puts "--concurrency must be greater than 0"
+        return 1
+      end
+
       if options.wait_interval_seconds <= 0
         stderr_io.puts "--wait-interval must be greater than 0"
         return 1
@@ -262,6 +273,7 @@ module Mzap
         wait_timeout_seconds: options.wait_timeout_seconds,
         report_format: report_format,
         report_out: options.report_out,
+        concurrency: options.concurrency,
       )
 
       begin
@@ -419,6 +431,7 @@ module Mzap
       apply_config_field(updated, provided_options, config_options, wait_timeout_seconds, wait_timeout_seconds, wait_timeout_seconds)
       apply_config_field(updated, provided_options, config_options, report_format, report_format, report_format)
       apply_config_field(updated, provided_options, config_options, report_out, report_out, report_out)
+      apply_config_field(updated, provided_options, config_options, concurrency, concurrency, concurrency)
 
       updated
     end
@@ -511,6 +524,9 @@ module Mzap
       when "--wait-timeout"
         options.wait_timeout_seconds = value
         provided.wait_timeout_seconds = true
+      when "--concurrency"
+        options.concurrency = value
+        provided.concurrency = true
       else
         raise ArgumentError.new("Unknown option: #{flag}")
       end
