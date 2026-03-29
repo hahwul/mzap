@@ -310,6 +310,13 @@ module Mzap
         fail_on: fail_on,
       )
 
+      stdin_temp_file : String? = nil
+      if options.urls == "-"
+        stdin_temp_file = File.tempname("mzap-stdin")
+        File.write(stdin_temp_file, STDIN.gets_to_end)
+        options.urls = stdin_temp_file
+      end
+
       begin
         case command
         when "spider", "ajaxspider", "ascan"
@@ -371,6 +378,10 @@ module Mzap
       rescue ex
         stderr_io.puts ex.message || ex.to_s
         return 1
+      ensure
+        if stdin_temp_file && File.exists?(stdin_temp_file)
+          File.delete(stdin_temp_file)
+        end
       end
 
       0
