@@ -1,5 +1,5 @@
 name: mzap
-version: 2.0.0
+version: 2.1.0
 description: Multi-target ZAP scanning CLI tool with multi-host dispatch and report generation
 
 authors:
