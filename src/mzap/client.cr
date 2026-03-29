@@ -332,7 +332,8 @@ module Mzap
             reporter.info("fail-on", "no alerts at or above #{options.fail_on} level", api_host)
           end
         rescue ex : Exception
-          reporter.warn("fail-on", "alert check failed #{format_error(ex)}", api_host)
+          failed = true
+          reporter.warn("fail-on", "alert check failed #{format_error(ex)} (treating as failure)", api_host)
         end
       end
 

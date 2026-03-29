@@ -331,15 +331,15 @@ module Mzap
       )
 
       stdin_temp_file : String? = nil
-      if options.urls == "-"
-        stdin_temp_file = File.tempname("mzap-stdin")
-        File.write(stdin_temp_file, STDIN.gets_to_end)
-        options.urls = stdin_temp_file
-      end
 
       begin
         case command
         when "spider", "ajaxspider", "ascan"
+          if options.urls == "-"
+            stdin_temp_file = File.tempname("mzap-stdin")
+            File.write(stdin_temp_file, STDIN.gets_to_end)
+            options.urls = stdin_temp_file
+          end
           if options.urls.empty?
             stdout_io.puts "Please input --urls flag"
             return 1
