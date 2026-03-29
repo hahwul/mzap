@@ -243,6 +243,8 @@ module Mzap
         return 1
       end
 
+      options = apply_env_options(options, provided_options, scan_command)
+
       Config.show_config_notice(config_options.path, stdout_io)
 
       if options.help || args.empty?
@@ -470,6 +472,86 @@ module Mzap
       apply_config_field(updated, provided_options, config_options, policy, policy, policy)
       apply_config_field(updated, provided_options, config_options, context, context, context)
       apply_config_field(updated, provided_options, config_options, fail_on, fail_on, fail_on)
+
+      updated
+    end
+
+    private def self.apply_env_options(
+      options : GlobalOptions,
+      provided_options : ProvidedOptions,
+      scan_command : Bool,
+    ) : GlobalOptions
+      updated = options
+
+      unless provided_options.urls
+        if value = ENV["MZAP_URLS"]?
+          updated.urls = value unless value.empty?
+        end
+      end
+      unless provided_options.apis
+        if value = ENV["MZAP_APIS"]?
+          updated.apis = value unless value.empty?
+        end
+      end
+      unless provided_options.api_key
+        if value = ENV["MZAP_APIKEY"]?
+          updated.api_key = value unless value.empty?
+        end
+      end
+
+      return updated unless scan_command
+
+      unless provided_options.wait
+        if value = ENV["MZAP_WAIT"]?
+          updated.wait = {"true", "1", "yes"}.includes?(value.downcase)
+        end
+      end
+      unless provided_options.wait_interval_seconds
+        if value = ENV["MZAP_WAIT_INTERVAL"]?
+          if parsed = value.to_i?
+            updated.wait_interval_seconds = parsed
+          end
+        end
+      end
+      unless provided_options.wait_timeout_seconds
+        if value = ENV["MZAP_WAIT_TIMEOUT"]?
+          if parsed = value.to_i?
+            updated.wait_timeout_seconds = parsed
+          end
+        end
+      end
+      unless provided_options.report_format
+        if value = ENV["MZAP_REPORT_FORMAT"]?
+          updated.report_format = value unless value.empty?
+        end
+      end
+      unless provided_options.report_out
+        if value = ENV["MZAP_REPORT_OUT"]?
+          updated.report_out = value unless value.empty?
+        end
+      end
+      unless provided_options.concurrency
+        if value = ENV["MZAP_CONCURRENCY"]?
+          if parsed = value.to_i?
+            updated.concurrency = parsed
+          end
+        end
+      end
+      unless provided_options.policy
+        if value = ENV["MZAP_POLICY"]?
+          updated.policy = value unless value.empty?
+        end
+      end
+      unless provided_options.context
+        if value = ENV["MZAP_CONTEXT"]?
+          updated.context = value unless value.empty?
+        end
+      end
+      unless provided_options.fail_on
+        if value = ENV["MZAP_FAIL_ON"]?
+          updated.fail_on = value unless value.empty?
+        end
+      end
 
       updated
     end
