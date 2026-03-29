@@ -7,6 +7,7 @@ module Mzap
     getter report_format : String
     getter report_out : String
     getter concurrency : Int32
+    getter policy : String
 
     def initialize(
       *,
@@ -17,6 +18,7 @@ module Mzap
       @report_format : String = "",
       @report_out : String = "",
       @concurrency : Int32 = 1,
+      @policy : String = "",
     )
     end
 

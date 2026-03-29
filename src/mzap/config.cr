@@ -19,6 +19,7 @@ module Mzap
       property report_format : String?
       property report_out : String?
       property concurrency : Int32?
+      property policy : String?
 
       def initialize
         @path = nil
@@ -31,6 +32,7 @@ module Mzap
         @report_format = nil
         @report_out = nil
         @concurrency = nil
+        @policy = nil
       end
     end
 
@@ -140,6 +142,8 @@ module Mzap
         options.report_out = parse_toml_string(raw_value, key, path, line_number)
       when "concurrency"
         options.concurrency = parse_toml_int(raw_value, key, path, line_number)
+      when "policy"
+        options.policy = parse_toml_string(raw_value, key, path, line_number)
       end
     end
 

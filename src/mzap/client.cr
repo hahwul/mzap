@@ -221,7 +221,7 @@ module Mzap
       end
 
       begin
-        result = execute_scan(zap_client, scan_type, target)
+        result = execute_scan(zap_client, scan_type, target, options.policy)
         scan_success = 1
         job_client = wait_client || zap_client
         if mutex
@@ -279,12 +279,12 @@ module Mzap
       end
     end
 
-    private def execute_scan(zap_client : Zap::Client, scan_type : String, target : String) : JSON::Any
+    private def execute_scan(zap_client : Zap::Client, scan_type : String, target : String, policy : String = "") : JSON::Any
       case scan_type
       when "spider"
         zap_client.spider.scan(url: target)
       when "active-scan"
-        zap_client.ascan.scan(url: target)
+        zap_client.ascan.scan(url: target, scan_policy_name: policy)
       when "ajax-spider"
         zap_client.ajax_spider.scan(url: target)
       else

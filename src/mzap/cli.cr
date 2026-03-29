@@ -11,6 +11,7 @@ module Mzap
       property report_format : String
       property report_out : String
       property concurrency : Int32
+      property policy : String
       property help : Bool
 
       def initialize
@@ -24,6 +25,7 @@ module Mzap
         @report_format = ""
         @report_out = ""
         @concurrency = 1
+        @policy = ""
         @help = false
       end
     end
@@ -39,6 +41,7 @@ module Mzap
       property report_format : Bool
       property report_out : Bool
       property concurrency : Bool
+      property policy : Bool
 
       def initialize
         @config = false
@@ -51,6 +54,7 @@ module Mzap
         @report_format = false
         @report_out = false
         @concurrency = false
+        @policy = false
       end
     end
 
@@ -131,9 +135,11 @@ module Mzap
 
     Examples:
       mzap ascan --urls targets.txt --apis http://localhost:8090
+      mzap ascan --urls targets.txt --apis http://localhost:8090 --policy "API-Minimal-Scan"
       mzap ascan --urls targets.txt --apis http://localhost:8090 --wait --report-format html
 
     #{SCAN_FLAGS_TEXT}
+      --policy string        ZAP scan policy name for active scan
     TEXT
 
     PSCAN_FLAGS_TEXT = <<-TEXT
@@ -200,7 +206,7 @@ module Mzap
       "version"    => HELP_VERSION,
     }
 
-    STRING_FLAGS = {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out"}
+    STRING_FLAGS = {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out", "--policy"}
     INT_FLAGS    = {"--wait-interval", "--wait-timeout", "--concurrency"}
 
     def self.run(argv : Array(String) = ARGV, stdout_io : IO = STDOUT, stderr_io : IO = STDERR) : Int32
@@ -274,6 +280,7 @@ module Mzap
         report_format: report_format,
         report_out: options.report_out,
         concurrency: options.concurrency,
+        policy: options.policy,
       )
 
       begin
@@ -432,6 +439,7 @@ module Mzap
       apply_config_field(updated, provided_options, config_options, report_format, report_format, report_format)
       apply_config_field(updated, provided_options, config_options, report_out, report_out, report_out)
       apply_config_field(updated, provided_options, config_options, concurrency, concurrency, concurrency)
+      apply_config_field(updated, provided_options, config_options, policy, policy, policy)
 
       updated
     end
@@ -504,6 +512,9 @@ module Mzap
       when "--report-out"
         options.report_out = value
         provided.report_out = true
+      when "--policy"
+        options.policy = value
+        provided.policy = true
       else
         raise ArgumentError.new("Unknown option: #{flag}")
       end
