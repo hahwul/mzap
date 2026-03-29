@@ -9,19 +9,19 @@ require "./mzap/cli"
 module Mzap
   extend self
 
-  def spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+  def spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Bool
     Client.spider(urls, apis: apis, options: options, reporter: reporter)
   end
 
-  def ajax_spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+  def ajax_spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Bool
     Client.ajax_spider(urls, apis: apis, options: options, reporter: reporter)
   end
 
-  def active_scan(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+  def active_scan(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Bool
     Client.active_scan(urls, apis: apis, options: options, reporter: reporter)
   end
 
-  def passive_scan(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
+  def passive_scan(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Bool
     Client.passive_scan(apis, options: options, reporter: reporter)
   end
 

@@ -36,19 +36,19 @@ module Mzap
     private record ScanJob, type : String, api_host : String, target : String, scan_id : String, zap_client : Zap::Client
     private record WaitPollResult, completed : Bool, failure_reason : String?
 
-    def spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    def spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Bool
       run(urls, apis, "spider", options, reporter)
     end
 
-    def ajax_spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    def ajax_spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Bool
       run(urls, apis, "ajax-spider", options, reporter)
     end
 
-    def active_scan(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    def active_scan(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Bool
       run(urls, apis, "active-scan", options, reporter)
     end
 
-    def passive_scan(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
+    def passive_scan(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Bool
       reporter.info("passive-scan", "start")
 
       api_hosts = normalize_api_hosts(apis)
@@ -90,7 +90,12 @@ module Mzap
           api_hosts.uniq.each { |host| report_targets[host] = Set(String).new }
           generate_reports(report_targets, clients, options, reporter)
         end
+
+        if !options.fail_on.empty?
+          return check_fail_on(clients, options, reporter)
+        end
       end
+      false
     end
 
     def stop_spider(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
@@ -105,12 +110,12 @@ module Mzap
       stop_all(apis, "ajax-spider", options, reporter)
     end
 
-    def run(urls : String, apis : String, scan_type : String, options : Options, reporter : Reporter = Reporter.new) : Nil
+    def run(urls : String, apis : String, scan_type : String, options : Options, reporter : Reporter = Reporter.new) : Bool
       reporter.info(scan_type, "start")
 
       unless File.exists?(urls)
         reporter.warn(scan_type, "target file not found", urls)
-        return
+        return false
       end
 
       targets = [] of String
@@ -129,7 +134,7 @@ module Mzap
 
       if targets.empty? && duplicates_removed == 0
         reporter.warn(scan_type, "no targets loaded from file", urls)
-        return
+        return false
       end
 
       if duplicates_removed > 0
@@ -197,7 +202,12 @@ module Mzap
         if options.report_enabled?
           generate_reports(report_targets_by_api, clients, options, reporter)
         end
+
+        if !options.fail_on.empty?
+          return check_fail_on(clients, options, reporter)
+        end
       end
+      false
     end
 
     private def dispatch_single_target(
@@ -269,6 +279,37 @@ module Mzap
       when "ajax-spider"
         ajax_wait_clients[api_host] = zap_client
       end
+    end
+
+    RISK_LEVELS = {"informational" => 0, "low" => 1, "medium" => 2, "high" => 3}
+
+    private def check_fail_on(clients : Hash(String, Zap::Client), options : Options, reporter : Reporter) : Bool
+      min_risk = RISK_LEVELS[options.fail_on]? || 0
+      failed = false
+
+      clients.each do |api_host, zap_client|
+        begin
+          result = zap_client.alert.alerts
+          alerts = extract_alerts_array(result)
+          matching = alerts.count do |alert|
+            alert_hash = alert.as_h? || next false
+            risk_str = alert_hash["risk"]?.try(&.as_s?) || ""
+            risk_id = RISK_LEVELS[risk_str.downcase]? || 0
+            risk_id >= min_risk
+          end
+
+          if matching > 0
+            failed = true
+            reporter.warn("fail-on", "#{matching} alert(s) at or above #{options.fail_on} level", api_host)
+          else
+            reporter.info("fail-on", "no alerts at or above #{options.fail_on} level", api_host)
+          end
+        rescue ex : Exception
+          reporter.warn("fail-on", "alert check failed #{format_error(ex)}", api_host)
+        end
+      end
+
+      failed
     end
 
     private def import_context(clients : Hash(String, Zap::Client), context_file : String, reporter : Reporter) : Nil

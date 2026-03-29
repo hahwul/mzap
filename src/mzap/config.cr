@@ -21,6 +21,7 @@ module Mzap
       property concurrency : Int32?
       property policy : String?
       property context : String?
+      property fail_on : String?
 
       def initialize
         @path = nil
@@ -35,6 +36,7 @@ module Mzap
         @concurrency = nil
         @policy = nil
         @context = nil
+        @fail_on = nil
       end
     end
 
@@ -148,6 +150,8 @@ module Mzap
         options.policy = parse_toml_string(raw_value, key, path, line_number)
       when "context"
         options.context = parse_toml_string(raw_value, key, path, line_number)
+      when "fail_on"
+        options.fail_on = parse_toml_string(raw_value, key, path, line_number)
       end
     end
 

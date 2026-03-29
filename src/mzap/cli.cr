@@ -13,6 +13,7 @@ module Mzap
       property concurrency : Int32
       property policy : String
       property context : String
+      property fail_on : String
       property help : Bool
 
       def initialize
@@ -28,6 +29,7 @@ module Mzap
         @concurrency = 1
         @policy = ""
         @context = ""
+        @fail_on = ""
         @help = false
       end
     end
@@ -45,6 +47,7 @@ module Mzap
       property concurrency : Bool
       property policy : Bool
       property context : Bool
+      property fail_on : Bool
 
       def initialize
         @config = false
@@ -59,6 +62,7 @@ module Mzap
         @concurrency = false
         @policy = false
         @context = false
+        @fail_on = false
       end
     end
 
@@ -81,6 +85,8 @@ module Mzap
                              e.g. --apis http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
       --config string        Config file path (TOML supported; default: $HOME/.config/mzap/config.toml)
       --context string       ZAP context file to import before scanning
+      --fail-on string       Fail with exit code 1 if alerts at or above risk level
+                             (informational/low/medium/high). Implies --wait
       --report-format        Report format after scan completion (html/pdf/json/md/sarif)
       --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
       --concurrency          Number of parallel scan dispatches (default 1)
@@ -212,7 +218,7 @@ module Mzap
       "version"    => HELP_VERSION,
     }
 
-    STRING_FLAGS = {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out", "--policy", "--context"}
+    STRING_FLAGS = {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out", "--policy", "--context", "--fail-on"}
     INT_FLAGS    = {"--wait-interval", "--wait-timeout", "--concurrency"}
 
     def self.run(argv : Array(String) = ARGV, stdout_io : IO = STDOUT, stderr_io : IO = STDERR) : Int32
@@ -258,6 +264,12 @@ module Mzap
         return 1
       end
 
+      fail_on = options.fail_on.downcase
+      unless fail_on.empty? || {"informational", "low", "medium", "high"}.includes?(fail_on)
+        stderr_io.puts "--fail-on supports only informational, low, medium, or high"
+        return 1
+      end
+
       if options.wait_interval_seconds <= 0
         stderr_io.puts "--wait-interval must be greater than 0"
         return 1
@@ -285,7 +297,7 @@ module Mzap
 
       zap_options = Options.new(
         api_key: options.api_key,
-        wait_for_completion: command == "pscan" ? true : (options.wait || !report_format.empty?),
+        wait_for_completion: command == "pscan" ? true : (options.wait || !report_format.empty? || !fail_on.empty?),
         wait_interval_seconds: options.wait_interval_seconds,
         wait_timeout_seconds: options.wait_timeout_seconds,
         report_format: report_format,
@@ -293,6 +305,7 @@ module Mzap
         concurrency: options.concurrency,
         policy: options.policy,
         context: options.context,
+        fail_on: fail_on,
       )
 
       begin
@@ -306,13 +319,16 @@ module Mzap
             stderr_io.puts "No such file: #{options.urls}"
             return 1
           end
-          case command
-          when "spider"     then Client.spider(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
-          when "ajaxspider" then Client.ajax_spider(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
-          when "ascan"      then Client.active_scan(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
-          end
+          fail_on_triggered = case command
+                              when "spider"     then Client.spider(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
+                              when "ajaxspider" then Client.ajax_spider(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
+                              when "ascan"      then Client.active_scan(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
+                              else                   false
+                              end
+          return 1 if fail_on_triggered
         when "pscan"
-          Client.passive_scan(options.apis, options: zap_options, reporter: reporter)
+          fail_on_triggered = Client.passive_scan(options.apis, options: zap_options, reporter: reporter)
+          return 1 if fail_on_triggered
         when "stop"
           if command_args.empty?
             stdout_io.puts "Please input scanning mode for stop"
@@ -453,6 +469,7 @@ module Mzap
       apply_config_field(updated, provided_options, config_options, concurrency, concurrency, concurrency)
       apply_config_field(updated, provided_options, config_options, policy, policy, policy)
       apply_config_field(updated, provided_options, config_options, context, context, context)
+      apply_config_field(updated, provided_options, config_options, fail_on, fail_on, fail_on)
 
       updated
     end
@@ -531,6 +548,9 @@ module Mzap
       when "--context"
         options.context = value
         provided.context = true
+      when "--fail-on"
+        options.fail_on = value
+        provided.fail_on = true
       else
         raise ArgumentError.new("Unknown option: #{flag}")
       end
