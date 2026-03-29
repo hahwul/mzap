@@ -68,7 +68,7 @@ module Mzap
       --apis string          Comma-separated ZAP API host URLs
                              e.g. --apis http://localhost:8090,http://192.168.0.4:8090 (default "http://localhost:8090")
       --config string        Config file path (TOML supported; default: $HOME/.config/mzap/config.toml)
-      --report-format        Report format after scan completion (html/pdf)
+      --report-format        Report format after scan completion (html/pdf/json/md/sarif)
       --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
       --wait                 Wait for initiated scans to complete
       --wait-interval        Poll interval in seconds while waiting (default 2)
@@ -86,7 +86,7 @@ module Mzap
       --wait                 Wait for initiated scans to complete
       --wait-interval        Poll interval in seconds while waiting (default 2)
       --wait-timeout         Wait timeout in seconds (default 0: no timeout)
-      --report-format        Report format after scan completion (html/pdf)
+      --report-format        Report format after scan completion (html/pdf/json/md/sarif)
       --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
       -h, --help             Show help
     TEXT
@@ -137,7 +137,7 @@ module Mzap
       --config string        Config file path (default: $HOME/.config/mzap/config.toml)
       --wait-interval        Poll interval in seconds while waiting (default 2)
       --wait-timeout         Wait timeout in seconds (default 0: no timeout)
-      --report-format        Report format after scan completion (html/pdf)
+      --report-format        Report format after scan completion (html/pdf/json/md/sarif)
       --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
       -h, --help             Show help
     TEXT
@@ -240,8 +240,8 @@ module Mzap
         return 1
       end
 
-      unless report_format.empty? || {"html", "pdf"}.includes?(report_format)
-        stderr_io.puts "--report-format supports only html or pdf"
+      unless report_format.empty? || {"html", "pdf", "json", "md", "sarif"}.includes?(report_format)
+        stderr_io.puts "--report-format supports only html, pdf, json, md, or sarif"
         return 1
       end
 

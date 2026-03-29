@@ -1,5 +1,9 @@
 version: 2.0
 shards:
+  sarif:
+    git: https://github.com/hahwul/sarif.cr.git
+    version: 0.2.0
+
   zap:
     git: https://github.com/hahwul/zap.cr.git
     version: 0.1.0+git.commit.2a090b047d38a56b39ac2d7cdb5fb059b0448371

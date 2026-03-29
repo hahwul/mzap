@@ -58,7 +58,7 @@ describe Mzap::CLI do
 
     code = Mzap::CLI.run(["spider", "--urls", "targets.txt", "--report-format", "xml"], stdout_io, stderr_io)
     code.should eq(1)
-    stderr_io.to_s.includes?("--report-format supports only html or pdf").should be_true
+    stderr_io.to_s.includes?("--report-format supports only html, pdf, json, md, or sarif").should be_true
   end
 
   it "returns error for unknown option" do
@@ -144,7 +144,7 @@ describe Mzap::CLI do
       stderr_io
     )
     code.should eq(1)
-    stderr_io.to_s.includes?("--report-format supports only html or pdf").should be_false
+    stderr_io.to_s.includes?("--report-format supports only html, pdf, json, md, or sarif").should be_false
     stderr_io.to_s.includes?("No such file").should be_true
 
     stdout_io.clear
@@ -155,7 +155,7 @@ describe Mzap::CLI do
       stderr_io
     )
     code.should eq(1)
-    stderr_io.to_s.includes?("--report-format supports only html or pdf").should be_true
+    stderr_io.to_s.includes?("--report-format supports only html, pdf, json, md, or sarif").should be_true
   end
 
   it "returns error when string option value is missing" do
