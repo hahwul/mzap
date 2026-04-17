@@ -35,7 +35,7 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
       - name: Build mzap Binary
         run: |
-          docker run --rm --platform linux/${{ matrix.arch }} -v $(pwd):/mzap -w /mzap --entrypoint="" 84codes/crystal:latest-debian-12 sh -c "
+          docker run --rm --platform linux/${{ matrix.arch }} -v $(pwd):/mzap -w /mzap --entrypoint="" crystallang/crystal:1.19.1 sh -c "
             apt-get update && apt-get install -y libyaml-dev ca-certificates git curl &&
             shards install --production &&
             /usr/bin/crystal build src/mzap_cli.cr -o mzap --release --no-debug --static
