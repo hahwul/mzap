@@ -1,4 +1,4 @@
-ARG CRYSTAL_VERSION=1.19.1
+ARG CRYSTAL_VERSION=1.20.0
 
 FROM crystallang/crystal:${CRYSTAL_VERSION} AS builder
 
