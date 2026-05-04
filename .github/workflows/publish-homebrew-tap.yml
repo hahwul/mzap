@@ -24,7 +24,7 @@ jobs:
             system "shards install"
             system "shards build --release --no-debug --production"
             bin.install "bin/mzap"
-          test: system "{bin}/mzap", "version"
+          test: system "#{bin}/mzap", "version"
           update_readme_table: false
           ignore_warnings: true
           skip_commit: false
