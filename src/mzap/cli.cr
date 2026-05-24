@@ -718,7 +718,7 @@ module Mzap
 
     private def self.parse_string_option(flag : String, value : String?, reject_dash_prefixed : Bool = false) : String
       raw = value || ""
-      if raw.empty? || (reject_dash_prefixed && raw.starts_with?('-'))
+      if raw.empty? || (reject_dash_prefixed && raw.starts_with?('-') && raw != "-")
         raise ArgumentError.new("Please input value for #{flag}")
       end
 

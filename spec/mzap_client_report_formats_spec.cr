@@ -232,4 +232,51 @@ describe Mzap do
       stderr_io.to_s.includes?("--report-format supports only").should be_false
     end
   end
+
+  it "generates sarif report correctly when pluginId is numeric in ZAP alerts response" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      case context.request.path
+      when Mzap::Client::ACCESS_API
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      when Mzap::Client::SPIDER_API
+        context.response.status_code = 200
+        context.response.print(%({"scan":"1"}))
+      when Mzap::Client::SPIDER_STATUS
+        context.response.status_code = 200
+        context.response.print(%({"status":"100"}))
+      when ALERTS_API_PATH
+        context.response.status_code = 200
+        context.response.print(%({"alerts":[{"pluginId":10021,"alert":"X-Content-Type-Options Header Missing","name":"X-Content-Type-Options Header Missing","risk":"Low","confidence":"Medium","url":"https://sarif.test","description":"Missing header","solution":"Add header"}]}))
+      else
+        context.response.status_code = 404
+        context.response.print(%({"error":"not found"}))
+      end
+    end)
+
+    report_path = "#{File.tempname("mzap-sarif-numeric-report")}.sarif"
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://sarif.test"]) do |target_file|
+        options = Mzap::Options.new(wait_for_completion: true, wait_interval_seconds: 0, wait_timeout_seconds: 5, report_format: "sarif", report_out: report_path)
+        Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
+      end
+
+      # Verify SARIF output
+      File.exists?(report_path).should be_true
+      sarif_content = File.read(report_path)
+      sarif_json = JSON.parse(sarif_content)
+      sarif_json["version"].as_s.should eq("2.1.0")
+      runs = sarif_json["runs"].as_a
+      runs.size.should eq(1)
+      results = runs[0]["results"].as_a
+      results.size.should eq(1)
+      results[0]["ruleId"].as_s.should eq("10021")
+    ensure
+      File.delete(report_path) if File.exists?(report_path)
+      server.close
+    end
+  end
 end

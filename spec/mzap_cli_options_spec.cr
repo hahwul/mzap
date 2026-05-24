@@ -433,4 +433,13 @@ describe Mzap::CLI do
     code.should eq(1)
     stderr_io.to_s.includes?("--wait and report options are only available").should be_true
   end
+
+  it "accepts '-' as a valid value for --urls" do
+    stdout_io = IO::Memory.new
+    stderr_io = IO::Memory.new
+
+    code = Mzap::CLI.run(["version", "--urls", "-"], stdout_io, stderr_io)
+    code.should eq(0)
+    stdout_io.to_s.includes?(Mzap::VERSION).should be_true
+  end
 end

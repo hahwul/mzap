@@ -176,16 +176,24 @@ module Mzap
           dispatch_targets.each do |(target, api_host)|
             semaphore.receive
             spawn do
-              fiber_client = Zap::Client.new(base_url: api_host, api_key: options.api_key)
               begin
-                ae, se, ss = dispatch_single_target(fiber_client, api_host, target, scan_type, options, scan_jobs, ajax_wait_clients, report_targets_by_api, reporter, mutex, clients[api_host])
+                fiber_client = Zap::Client.new(base_url: api_host, api_key: options.api_key)
+                begin
+                  ae, se, ss = dispatch_single_target(fiber_client, api_host, target, scan_type, options, scan_jobs, ajax_wait_clients, report_targets_by_api, reporter, mutex, clients[api_host])
+                  mutex.synchronize do
+                    access_errors += ae
+                    scan_errors += se
+                    scan_success += ss
+                  end
+                ensure
+                  fiber_client.close
+                end
+              rescue ex : Exception
+                reporter.warn(scan_type, "fiber dispatch failed: #{ex.message || ex.to_s}", api_host, target)
                 mutex.synchronize do
-                  access_errors += ae
-                  scan_errors += se
-                  scan_success += ss
+                  scan_errors += 1
                 end
               ensure
-                fiber_client.close
                 semaphore.send(nil)
                 done.send(nil)
               end
@@ -856,7 +864,7 @@ module Mzap
           rules_added = Set(String).new
           alerts.each do |alert|
             alert_hash = alert.as_h? || next
-            plugin_id = alert_hash["pluginId"]?.try(&.as_s?) || alert_hash["id"]?.try { |v| stringify_json_value(v) } || "unknown"
+            plugin_id = alert_hash["pluginId"]?.try { |v| stringify_json_value(v) } || alert_hash["id"]?.try { |v| stringify_json_value(v) } || "unknown"
             name = alert_hash["name"]?.try(&.as_s?) || alert_hash["alert"]?.try(&.as_s?) || "Unknown Alert"
             description = alert_hash["description"]?.try(&.as_s?) || ""
             uri = alert_hash["url"]?.try(&.as_s?) || alert_hash["uri"]?.try(&.as_s?) || ""

@@ -1,5 +1,22 @@
 require "./spec_helper"
 
+class Zap::Client
+  class_property init_count : Int32 = 0
+  class_property? should_raise_after : Int32? = nil
+
+  def self.new(base_url : String = "http://localhost:8080", api_key : String = "", connect_timeout : Time::Span = 30.seconds, read_timeout : Time::Span = 300.seconds)
+    @@init_count += 1
+    if limit = @@should_raise_after
+      if @@init_count > limit
+        raise Exception.new("Mocked Zap::Client init exception")
+      end
+    end
+    client = allocate
+    client.initialize(base_url, api_key, connect_timeout, read_timeout)
+    client
+  end
+end
+
 describe Mzap do
   it "dispatches scans concurrently with --concurrency flag" do
     server = TestServer.new
@@ -175,6 +192,32 @@ describe Mzap do
       stdout = stdout_io.to_s
       stdout.includes?("success=2").should be_true
       stdout.includes?("scan_completed=2/2").should be_true
+    ensure
+      server.close
+    end
+  end
+
+  it "does not deadlock if client initialization fails in spawned concurrent fibers" do
+    server = TestServer.new
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      with_target_file(["https://conc-fail1.test", "https://conc-fail2.test"]) do |target_file|
+        options = Mzap::Options.new(concurrency: 2)
+        Zap::Client.init_count = 0
+        Zap::Client.should_raise_after = 1
+        begin
+          Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
+        ensure
+          Zap::Client.should_raise_after = nil
+        end
+      end
+
+      stdout = stdout_io.to_s
+      stderr = stderr_io.to_s
+      stdout.includes?("scan_errors=2").should be_true
+      stderr.includes?("fiber dispatch failed").should be_true
     ensure
       server.close
     end
