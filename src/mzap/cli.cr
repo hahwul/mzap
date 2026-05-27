@@ -516,92 +516,54 @@ module Mzap
     ) : GlobalOptions
       updated = options
 
-      unless provided_options.urls
-        if value = ENV["MZAP_URLS"]?
-          updated.urls = value unless value.empty?
-        end
-      end
-      unless provided_options.apis
-        if value = ENV["MZAP_APIS"]?
-          updated.apis = value unless value.empty?
-        end
-      end
-      unless provided_options.api_key
-        if value = ENV["MZAP_APIKEY"]?
-          updated.api_key = value unless value.empty?
-        end
-      end
+      # Non-scan options (always applicable)
+      apply_env_string(updated, provided_options.urls, "MZAP_URLS") { |v| updated.urls = v }
+      apply_env_string(updated, provided_options.apis, "MZAP_APIS") { |v| updated.apis = v }
+      apply_env_string(updated, provided_options.api_key, "MZAP_APIKEY") { |v| updated.api_key = v }
 
       return updated unless scan_command
 
-      unless provided_options.wait
-        if value = ENV["MZAP_WAIT"]?
-          updated.wait = {"true", "1", "yes"}.includes?(value.downcase)
-        end
-      end
-      unless provided_options.wait_interval_seconds
-        if value = ENV["MZAP_WAIT_INTERVAL"]?
-          if parsed = value.to_i?
-            updated.wait_interval_seconds = parsed
-          end
-        end
-      end
-      unless provided_options.wait_timeout_seconds
-        if value = ENV["MZAP_WAIT_TIMEOUT"]?
-          if parsed = value.to_i?
-            updated.wait_timeout_seconds = parsed
-          end
-        end
-      end
-      unless provided_options.report_format
-        if value = ENV["MZAP_REPORT_FORMAT"]?
-          updated.report_format = value unless value.empty?
-        end
-      end
-      unless provided_options.report_out
-        if value = ENV["MZAP_REPORT_OUT"]?
-          updated.report_out = value unless value.empty?
-        end
-      end
-      unless provided_options.concurrency
-        if value = ENV["MZAP_CONCURRENCY"]?
-          if parsed = value.to_i?
-            updated.concurrency = parsed
-          end
-        end
-      end
-      unless provided_options.policy
-        if value = ENV["MZAP_POLICY"]?
-          updated.policy = value unless value.empty?
-        end
-      end
-      unless provided_options.context
-        if value = ENV["MZAP_CONTEXT"]?
-          updated.context = value unless value.empty?
-        end
-      end
-      unless provided_options.fail_on
-        if value = ENV["MZAP_FAIL_ON"]?
-          updated.fail_on = value unless value.empty?
-        end
-      end
-      unless provided_options.retry_count
-        if value = ENV["MZAP_RETRY"]?
-          if parsed = value.to_i?
-            updated.retry_count = parsed
-          end
-        end
-      end
-      unless provided_options.retry_delay_seconds
-        if value = ENV["MZAP_RETRY_DELAY"]?
-          if parsed = value.to_i?
-            updated.retry_delay_seconds = parsed
-          end
-        end
-      end
+      # Scan-only options
+      apply_env_bool(updated, provided_options.wait, "MZAP_WAIT") { |v| updated.wait = v }
+      apply_env_int(updated, provided_options.wait_interval_seconds, "MZAP_WAIT_INTERVAL") { |v| updated.wait_interval_seconds = v }
+      apply_env_int(updated, provided_options.wait_timeout_seconds, "MZAP_WAIT_TIMEOUT") { |v| updated.wait_timeout_seconds = v }
+      apply_env_string(updated, provided_options.report_format, "MZAP_REPORT_FORMAT") { |v| updated.report_format = v }
+      apply_env_string(updated, provided_options.report_out, "MZAP_REPORT_OUT") { |v| updated.report_out = v }
+      apply_env_int(updated, provided_options.concurrency, "MZAP_CONCURRENCY") { |v| updated.concurrency = v }
+      apply_env_string(updated, provided_options.policy, "MZAP_POLICY") { |v| updated.policy = v }
+      apply_env_string(updated, provided_options.context, "MZAP_CONTEXT") { |v| updated.context = v }
+      apply_env_string(updated, provided_options.fail_on, "MZAP_FAIL_ON") { |v| updated.fail_on = v }
+      apply_env_int(updated, provided_options.retry_count, "MZAP_RETRY") { |v| updated.retry_count = v }
+      apply_env_int(updated, provided_options.retry_delay_seconds, "MZAP_RETRY_DELAY") { |v| updated.retry_delay_seconds = v }
 
       updated
     end
+
+    # --- Env application helpers (Phase 1 refactor: reduce 90-line duplication) ---
+    private def self.apply_env_string(updated : GlobalOptions, provided : Bool, env_name : String, &assign : String ->) : Nil
+      return if provided
+      if value = ENV[env_name]?
+        assign.call(value) unless value.empty?
+      end
+    end
+
+    private def self.apply_env_int(updated : GlobalOptions, provided : Bool, env_name : String, &assign : Int32 ->) : Nil
+      return if provided
+      if value = ENV[env_name]?
+        if parsed = value.to_i?
+          assign.call(parsed)
+        end
+      end
+    end
+
+    private def self.apply_env_bool(updated : GlobalOptions, provided : Bool, env_name : String, &assign : Bool ->) : Nil
+      return if provided
+      if value = ENV[env_name]?
+        assign.call({"true", "1", "yes"}.includes?(value.downcase))
+      end
+    end
+
+    # --- end helpers ---
 
     private def self.string_flag?(arg : String) : Bool
       STRING_FLAGS.includes?(arg)
