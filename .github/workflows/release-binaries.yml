@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Install Crystal
@@ -47,9 +47,30 @@ jobs:
         name: Build binary (macOS)
         run: |
           mkdir -p build
+          # Pin PKG_CONFIG_PATH to openssl@3 so the binary links the current
+          # OpenSSL instead of an EOL openssl@1.1, which would fail to launch on
+          # a clean machine (dyld: libssl.1.1.dylib not found). openssl@3 is the
+          # only Homebrew dylib the binary needs; it is declared in the formula.
+          brew install openssl@3
+          export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+          BIN="build/mzap-${GITHUB_REF_SLUG}-osx-${ARCH}"
           crystal build src/mzap_cli.cr \
-            -o build/mzap-${GITHUB_REF_SLUG}-osx-${ARCH} \
+            -o "$BIN" \
             --no-debug --release
+          echo "== otool -L $BIN ==" && otool -L "$BIN"
+          # Guard 1: never ship a macOS binary linked against EOL openssl@1.1.
+          if otool -L "$BIN" | grep -q 'openssl@1.1'; then
+            echo "::error::macOS binary still links EOL openssl@1.1"; exit 1
+          fi
+          # Guard 2: openssl@3 must be the ONLY Homebrew dynamic dep, else the
+          # formula's depends_on list is out of date.
+          EXTRA="$(otool -L "$BIN" \
+            | grep -oE '/(opt/homebrew|usr/local)/(opt|Cellar)/[^/]+' \
+            | grep -v 'openssl@3' | sort -u || true)"
+          if [ -n "$EXTRA" ]; then
+            echo "::error::unexpected non-openssl@3 Homebrew deps (update formula depends_on):"
+            echo "$EXTRA"; exit 1
+          fi
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
