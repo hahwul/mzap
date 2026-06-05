@@ -1,32 +1,104 @@
 ---
 name: Homebrew tap Publish
 on:
-  release:
-    types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. 2.1.1)"
+        required: true
+        type: string
+  workflow_run:
+    workflows: ["Build and Release Binaries"]
+    types: [completed]
+permissions:
+  contents: read
 jobs:
-  homebrew-releaser:
+  publish-formula:
+    name: Publish prebuilt formula to tap
+    # Run after a release-triggered binary build succeeds, or on manual
+    # dispatch. The prebuilt formula needs the release binaries to exist first.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'release')
     runs-on: ubuntu-latest
-    name: homebrew-releaser
     steps:
-      - name: Release mzap to Homebrew tap
-        uses: Justintime50/homebrew-releaser@v3
+      - name: Checkout source (formula template)
+        uses: actions/checkout@v6
         with:
-          homebrew_owner: hahwul
-          homebrew_tap: homebrew-mzap
-          formula_folder: Formula
-          github_token: ${{ secrets.MZAP_PUBLISH_TOKEN }}
-          commit_owner: hahwul
-          commit_email: hahwul@gmail.com
-          depends_on: |
-            "crystal"
-          install: |
-            system "shards install"
-            system "shards build --release --no-debug --production"
-            bin.install "bin/mzap"
-          test: system "#{bin}/mzap", "version"
-          update_readme_table: false
-          ignore_warnings: true
-          skip_commit: false
-          skip_checksum: true
-          debug: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.event.workflow_run.head_branch }}
+
+      - name: Resolve version
+        id: ver
+        # Pass event data via env (never interpolate ${{ }} straight into the
+        # script body) so a crafted tag/branch name can't inject shell.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_VERSION: ${{ github.event.inputs.version }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            RAW="$DISPATCH_VERSION"
+          else
+            RAW="$RUN_BRANCH"
+          fi
+          # Strip leading 'v' if present
+          VERSION="${RAW#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION"
+
+      - name: Download release binaries and compute checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          V: ${{ steps.ver.outputs.version }}
+        run: |
+          # Linux binaries are static; macOS binaries link only openssl@3.
+          for asset in osx-arm64 osx-x86_64 linux-arm64 linux-x86_64; do
+            gh release download "v$V" --repo hahwul/mzap \
+              --pattern "mzap-v$V-$asset" --output "mzap-v$V-$asset"
+          done
+          {
+            echo "SHA_OSX_ARM64=$(sha256sum "mzap-v$V-osx-arm64" | awk '{print $1}')"
+            echo "SHA_OSX_X86_64=$(sha256sum "mzap-v$V-osx-x86_64" | awk '{print $1}')"
+            echo "SHA_LINUX_ARM64=$(sha256sum "mzap-v$V-linux-arm64" | awk '{print $1}')"
+            echo "SHA_LINUX_X86_64=$(sha256sum "mzap-v$V-linux-x86_64" | awk '{print $1}')"
+          } >> "$GITHUB_ENV"
+
+      - name: Render formula
+        env:
+          V: ${{ steps.ver.outputs.version }}
+        run: |
+          mkdir -p out
+          sed \
+            -e "s|__VERSION__|$V|g" \
+            -e "s|__SHA_OSX_ARM64__|$SHA_OSX_ARM64|g" \
+            -e "s|__SHA_OSX_X86_64__|$SHA_OSX_X86_64|g" \
+            -e "s|__SHA_LINUX_ARM64__|$SHA_LINUX_ARM64|g" \
+            -e "s|__SHA_LINUX_X86_64__|$SHA_LINUX_X86_64|g" \
+            .github/homebrew/mzap.rb.tmpl > out/mzap.rb
+          echo "----- rendered formula -----"
+          cat out/mzap.rb
+
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@v6
+        with:
+          repository: hahwul/homebrew-mzap
+          token: ${{ secrets.MZAP_PUBLISH_TOKEN }}
+          path: tap
+
+      - name: Commit and push formula
+        env:
+          V: ${{ steps.ver.outputs.version }}
+        run: |
+          mkdir -p tap/Formula
+          cp out/mzap.rb tap/Formula/mzap.rb
+          cd tap
+          git config user.name "hahwul"
+          git config user.email "hahwul@gmail.com"
+          git add Formula/mzap.rb
+          if git diff --cached --quiet; then
+            echo "Formula unchanged; nothing to publish."
+            exit 0
+          fi
+          git commit -m "mzap $V"
+          git push

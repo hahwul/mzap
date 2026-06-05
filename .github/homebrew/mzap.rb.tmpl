@@ -1,0 +1,46 @@
+# typed: strict
+# frozen_string_literal: true
+
+# This file is rendered by mzap's release pipeline (.github/workflows/publish-homebrew-tap.yml).
+# DO NOT EDIT by hand.
+class Mzap < Formula
+  desc "Multi-target ZAP scanning CLI with multi-host dispatch and reporting"
+  homepage "https://github.com/hahwul/mzap"
+  version "__VERSION__"
+  license "MIT"
+
+  on_macos do
+    # macOS binaries are dynamically linked; openssl@3 is the only non-system
+    # dependency (enforced by an otool guard in release-binaries.yml).
+    depends_on "openssl@3"
+
+    on_arm do
+      url "https://github.com/hahwul/mzap/releases/download/v__VERSION__/mzap-v__VERSION__-osx-arm64"
+      sha256 "__SHA_OSX_ARM64__"
+    end
+    on_intel do
+      url "https://github.com/hahwul/mzap/releases/download/v__VERSION__/mzap-v__VERSION__-osx-x86_64"
+      sha256 "__SHA_OSX_X86_64__"
+    end
+  end
+
+  on_linux do
+    # Linux release binaries are statically linked, so they are self-contained.
+    on_arm do
+      url "https://github.com/hahwul/mzap/releases/download/v__VERSION__/mzap-v__VERSION__-linux-arm64"
+      sha256 "__SHA_LINUX_ARM64__"
+    end
+    on_intel do
+      url "https://github.com/hahwul/mzap/releases/download/v__VERSION__/mzap-v__VERSION__-linux-x86_64"
+      sha256 "__SHA_LINUX_X86_64__"
+    end
+  end
+
+  def install
+    bin.install Dir["mzap-v__VERSION__-*"].first => "mzap"
+  end
+
+  test do
+    system "#{bin}/mzap", "version"
+  end
+end
