@@ -1,0 +1,5 @@
+# API definition locations for `mzap import` (one per line).
+# Each line is a local file path or an http(s):// URL.
+# Use --format to select the importer: openapi | soap | graphql | postman.
+https://raw.githubusercontent.com/OWASP/www-project-zap/master/openapi.json
+# /work/specs/my-api.yaml

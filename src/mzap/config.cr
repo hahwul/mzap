@@ -27,6 +27,8 @@ module Mzap
       property fail_on : String?
       property retry_count : Int32?
       property retry_delay_seconds : Int32?
+      property format : String?
+      property target_url : String?
     end
 
     def load_options(config_path : String) : FileOptions
@@ -145,6 +147,10 @@ module Mzap
         options.retry_count = parse_toml_int(raw_value, key, path, line_number)
       when "retry_delay", "retry_delay_seconds"
         options.retry_delay_seconds = parse_toml_int(raw_value, key, path, line_number)
+      when "format", "import_format"
+        options.format = parse_toml_string(raw_value, key, path, line_number)
+      when "target_url", "target"
+        options.target_url = parse_toml_string(raw_value, key, path, line_number)
       end
     end
 

@@ -7,7 +7,7 @@ describe Mzap::CLI do
 
     code = Mzap::CLI.run(["stop", "invalid"], stdout_io, stderr_io)
     code.should eq(1)
-    stdout_io.to_s.includes?("spider/ascan/ajaxspider/all").should be_true
+    stdout_io.to_s.includes?("spider/ascan/ajaxspider/clientspider/all").should be_true
   end
 
   it "returns error for unknown command" do
