@@ -161,6 +161,7 @@ describe Mzap::CLI do
         [
           stop_path(Mzap::Client::SPIDER_STOP),
           stop_path(Mzap::Client::AJAX_SPIDER_STOP),
+          stop_path(Mzap::Client::CLIENT_SPIDER_STOP),
           stop_path(Mzap::Client::ASCAN_STOP),
         ]
       )

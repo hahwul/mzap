@@ -6,19 +6,22 @@ module Mzap
   module Client
     extend self
 
-    ACCESS_API      = "/JSON/core/action/accessUrl/"
-    SPIDER_API      = "/JSON/spider/action/scan/"
-    ASCAN_API       = "/JSON/ascan/action/scan/"
-    AJAX_SPIDER_API = "/JSON/ajaxSpider/action/scan/"
-    SPIDER_STATUS   = "/JSON/spider/view/status/"
-    ASCAN_STATUS    = "/JSON/ascan/view/status/"
-    AJAX_STATUS     = "/JSON/ajaxSpider/view/status/"
+    ACCESS_API         = "/JSON/core/action/accessUrl/"
+    SPIDER_API         = "/JSON/spider/action/scan/"
+    ASCAN_API          = "/JSON/ascan/action/scan/"
+    AJAX_SPIDER_API    = "/JSON/ajaxSpider/action/scan/"
+    CLIENT_SPIDER_API  = "/JSON/clientSpider/action/scan/"
+    SPIDER_STATUS      = "/JSON/spider/view/status/"
+    ASCAN_STATUS       = "/JSON/ascan/view/status/"
+    AJAX_STATUS        = "/JSON/ajaxSpider/view/status/"
+    CLIENT_SPIDER_STAT = "/JSON/clientSpider/view/status/"
 
     PSCAN_RECORDS_TO_SCAN = "/JSON/pscan/view/recordsToScan/"
 
-    SPIDER_STOP      = "/JSON/spider/action/stopAllScans/"
-    ASCAN_STOP       = "/JSON/ascan/action/stopAllScans/"
-    AJAX_SPIDER_STOP = "/JSON/ajaxSpider/action/stop/"
+    SPIDER_STOP        = "/JSON/spider/action/stopAllScans/"
+    ASCAN_STOP         = "/JSON/ascan/action/stopAllScans/"
+    AJAX_SPIDER_STOP   = "/JSON/ajaxSpider/action/stop/"
+    CLIENT_SPIDER_STOP = "/JSON/clientSpider/action/stop/"
 
     REPORT_GENERATE_API = "/JSON/reports/action/generate/"
     HTML_REPORT_API     = "/OTHER/core/other/htmlreport/"
@@ -55,36 +58,19 @@ module Mzap
       run(urls, apis, "active-scan", options, reporter)
     end
 
+    # Client Spider is the modern, browser-based crawler introduced in ZAP 2.16
+    # (the "client" add-on). Requires ZAP >= 2.16 with the Client Side Integration
+    # add-on installed; otherwise the scan dispatch surfaces a clear API error.
+    def client_spider(urls : String, *, apis : String, options : Options, reporter : Reporter = Reporter.new) : Bool
+      run(urls, apis, "client-spider", options, reporter)
+    end
+
     def passive_scan(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Bool
       reporter.info("passive-scan", "start")
 
       api_hosts = normalize_api_hosts(apis)
       with_zap_clients(api_hosts, options) do |clients|
-        pending = api_hosts.uniq.map { |host| {host, clients[host]} }
-        reporter.info("passive-scan", "waiting for #{pending.size} host(s)")
-
-        started_at = Time.utc
-        poll_failures = 0
-        completed_hosts = 0
-        last_poll_failure = {} of String => String
-
-        timed_out = run_poll_loop(started_at, options) do
-          pending.reject! do |(api_host, zap_client)|
-            outcome = poll_pscan_status(api_host, zap_client, reporter, last_poll_failure)
-            completed_hosts += 1 if outcome.completed
-            poll_failures += 1 if outcome.poll_failed
-            outcome.completed
-          end
-          pending.empty?
-        end
-
-        if timed_out
-          pending.each do |(api_host, _)|
-            reporter.warn("passive-scan", "timeout", api_host)
-          end
-        end
-
-        reporter.info("passive-scan", "summary completed=#{completed_hosts}/#{api_hosts.uniq.size} poll_failures=#{poll_failures} timed_out=#{timed_out}")
+        wait_for_passive_scan(api_hosts, clients, options, reporter)
 
         print_alert_summary(clients, reporter)
 
@@ -113,6 +99,10 @@ module Mzap
       stop_all(apis, "ajax-spider", options, reporter)
     end
 
+    def stop_client_spider(apis : String, *, options : Options, reporter : Reporter = Reporter.new) : Nil
+      stop_all(apis, "client-spider", options, reporter)
+    end
+
     def run(urls : String, apis : String, scan_type : String, options : Options, reporter : Reporter = Reporter.new) : Bool
       reporter.info(scan_type, "start")
 
@@ -121,19 +111,7 @@ module Mzap
         return false
       end
 
-      targets = [] of String
-      seen = Set(String).new
-      duplicates_removed = 0
-      File.each_line(urls) do |line|
-        value = line.strip
-        next if value.empty?
-        next if value.starts_with?('#')
-        if seen.add?(value)
-          targets << value
-        else
-          duplicates_removed += 1
-        end
-      end
+      targets, duplicates_removed = read_targets(urls)
 
       if targets.empty? && duplicates_removed == 0
         reporter.warn(scan_type, "no targets loaded from file", urls)
@@ -308,7 +286,7 @@ module Mzap
     ) : Nil
       return unless options.wait_enabled?
       case scan_type
-      when "spider", "active-scan"
+      when "spider", "active-scan", "client-spider"
         scan_id = extract_scan_id(result)
         if scan_id
           scan_jobs << ScanJob.new(scan_type, api_host, target, scan_id, zap_client)
@@ -368,6 +346,8 @@ module Mzap
         zap_client.ascan.scan(url: target, scan_policy_name: policy)
       when "ajax-spider"
         zap_client.ajax_spider.scan(url: target)
+      when "client-spider"
+        zap_client.client_spider.scan(url: target)
       else
         raise Zap::Error.new("Unknown scan type: #{scan_type}")
       end
@@ -417,6 +397,26 @@ module Mzap
       end
     end
 
+    # Reads a target/spec list file, stripping blanks and `#` comments and removing
+    # duplicates while preserving order. Returns the unique entries plus the count
+    # of duplicates dropped, so callers can warn appropriately.
+    private def read_targets(path : String) : {Array(String), Int32}
+      targets = [] of String
+      seen = Set(String).new
+      duplicates_removed = 0
+      File.each_line(path) do |line|
+        value = line.strip
+        next if value.empty?
+        next if value.starts_with?('#')
+        if seen.add?(value)
+          targets << value
+        else
+          duplicates_removed += 1
+        end
+      end
+      {targets, duplicates_removed}
+    end
+
     private def normalize_api_hosts(apis : String) : Array(String)
       hosts = apis.split(",").map { |h| h.strip.rstrip('/') }.reject(&.empty?)
       if hosts.empty?
@@ -441,6 +441,8 @@ module Mzap
               zap_client.ascan.stop_all
             when "ajax-spider"
               zap_client.ajax_spider.stop
+            when "client-spider"
+              zap_client.client_spider.stop
             end
             success_count += 1
             reporter.info(scan_type, "stopped", api_host)
@@ -459,3 +461,5 @@ end
 require "./client/alerts"
 require "./client/wait"
 require "./client/reports"
+require "./client/imports"
+require "./client/inspect"

@@ -57,6 +57,43 @@ module Mzap
       reporter.info("wait", "summary scan_completed=#{completed_scan_jobs}/#{total_scan_jobs} ajax_completed=#{completed_ajax_hosts}/#{total_ajax_hosts} poll_failures=#{poll_failures} timed_out=#{timed_out}")
     end
 
+    # Polls passive-scan completion (recordsToScan -> 0) across all hosts until each
+    # settles or the wait timeout elapses. Shared by the `pscan` command and the
+    # post-import settle step. Progress is logged under `category`.
+    private def wait_for_passive_scan(
+      api_hosts : Array(String),
+      clients : Hash(String, Zap::Client),
+      options : Options,
+      reporter : Reporter,
+      category : String = "passive-scan",
+    ) : Nil
+      pending = api_hosts.uniq.map { |host| {host, clients[host]} }
+      reporter.info(category, "waiting for #{pending.size} host(s)")
+
+      started_at = Time.utc
+      poll_failures = 0
+      completed_hosts = 0
+      last_poll_failure = {} of String => String
+
+      timed_out = run_poll_loop(started_at, options) do
+        pending.reject! do |(api_host, zap_client)|
+          outcome = poll_pscan_status(api_host, zap_client, reporter, last_poll_failure)
+          completed_hosts += 1 if outcome.completed
+          poll_failures += 1 if outcome.poll_failed
+          outcome.completed
+        end
+        pending.empty?
+      end
+
+      if timed_out
+        pending.each do |(api_host, _)|
+          reporter.warn(category, "timeout", api_host)
+        end
+      end
+
+      reporter.info(category, "summary completed=#{completed_hosts}/#{api_hosts.uniq.size} poll_failures=#{poll_failures} timed_out=#{timed_out}")
+    end
+
     private def poll_scan_job(
       job : ScanJob,
       reporter : Reporter,
@@ -181,6 +218,9 @@ module Mzap
                when "active-scan"
                  scan_id = job.scan_id.to_i? || -1
                  job.zap_client.ascan.status(scan_id)
+               when "client-spider"
+                 scan_id = job.scan_id.to_i? || -1
+                 job.zap_client.client_spider.status(scan_id)
                else
                  return WaitPollResult.new(false, "(unknown scan type)")
                end

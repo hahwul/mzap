@@ -6,5 +6,5 @@ shards:
 
   zap:
     git: https://github.com/hahwul/zap.cr.git
-    version: 0.1.0
+    version: 0.2.0
 

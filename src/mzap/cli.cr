@@ -18,6 +18,8 @@ module Mzap
       property fail_on : String = ""
       property retry_count : Int32 = 0
       property retry_delay_seconds : Int32 = 5
+      property format : String = ""
+      property target_url : String = ""
       property help : Bool = false
     end
 
@@ -39,6 +41,8 @@ module Mzap
       property fail_on : Bool = false
       property retry_count : Bool = false
       property retry_delay_seconds : Bool = false
+      property format : Bool = false
+      property target_url : Bool = false
     end
 
     HELP_TEXT = <<-TEXT
@@ -46,13 +50,17 @@ module Mzap
       mzap [command]
 
     Subcommands:
-      ajaxspider  Start Ajax Spider scans in ZAP
-      ascan       Start Active Scan jobs in ZAP
-      help        Show help for a command
-      pscan       Wait for Passive Scan completion in ZAP
-      spider      Start Spider scans in ZAP
-      stop        Stop running scans
-      version     Show mzap version
+      ajaxspider    Start Ajax Spider scans in ZAP
+      ascan         Start Active Scan jobs in ZAP
+      clientspider  Start Client Spider scans in ZAP (ZAP 2.16+)
+      help          Show help for a command
+      import        Import API definitions (openapi/soap/graphql/postman)
+      policies      List active-scan policies in ZAP
+      pscan         Wait for Passive Scan completion in ZAP
+      sitestree     Export or prune the ZAP Sites Tree (ZAP 2.16+)
+      spider        Start Spider scans in ZAP
+      stop          Stop running scans
+      version       Show mzap version
 
     Flags:
       --apikey string        ZAP API key (omit when API key auth is disabled)
@@ -114,6 +122,22 @@ module Mzap
     #{SCAN_FLAGS_TEXT}
     TEXT
 
+    HELP_CLIENTSPIDER = <<-TEXT
+    Start Client Spider scans in ZAP
+
+    The Client Spider is the modern, browser-based crawler introduced in ZAP 2.16.
+    It requires ZAP >= 2.16 with the "Client Side Integration" add-on installed.
+
+    Usage:
+      mzap clientspider --urls <file> [flags]
+
+    Examples:
+      mzap clientspider --urls targets.txt --apis http://localhost:8090
+      mzap clientspider --urls targets.txt --apis http://localhost:8090 --wait --report-format html
+
+    #{SCAN_FLAGS_TEXT}
+    TEXT
+
     HELP_ASCAN = <<-TEXT
     Start Active Scan jobs in ZAP
 
@@ -127,6 +151,38 @@ module Mzap
 
     #{SCAN_FLAGS_TEXT}
       --policy string        ZAP scan policy name for active scan
+    TEXT
+
+    HELP_IMPORT = <<-TEXT
+    Import API definitions into ZAP
+
+    Seeds ZAP's Sites Tree from API definitions so the endpoints can be passively
+    scanned and reported, or actively scanned afterwards with `mzap ascan`.
+    Each line in --urls is a spec location: a local file path or an http(s):// URL.
+
+    Usage:
+      mzap import --format <openapi|soap|graphql|postman> --urls <file> [flags]
+
+    Examples:
+      mzap import --format openapi --urls specs.txt --apis http://localhost:8090
+      mzap import --format openapi --urls specs.txt --target-url https://api.example.com --wait --report-format sarif --fail-on high
+      echo https://api.example.com/openapi.json | mzap import --format openapi --urls -
+
+    Flags:
+      --format string        API definition format: openapi, soap, graphql, or postman
+      --urls string          Path to spec list file (file paths or http(s):// URLs, one per line)
+      --target-url string    Target/endpoint URL override (openapi target & host override; graphql endpoint)
+      --apis string          Comma-separated ZAP API host URLs (default "http://localhost:8090")
+      --apikey string        ZAP API key (omit when API key auth is disabled)
+      --config string        Config file path (default: $HOME/.config/mzap/config.toml)
+      --context string       ZAP context file to import before importing specs
+      --wait                 Wait for passive scanning to settle after import
+      --wait-interval        Poll interval in seconds while waiting (default 2)
+      --wait-timeout         Wait timeout in seconds (default 0: no timeout)
+      --report-format        Report format after import completion (html/pdf/json/md/sarif)
+      --report-out           Report output path (default: mzap-report-<timestamp>.<ext>)
+      --fail-on string       Fail with exit code 1 if alerts at or above risk level
+      -h, --help             Show help
     TEXT
 
     PSCAN_FLAGS_TEXT = <<-TEXT
@@ -154,6 +210,49 @@ module Mzap
     #{PSCAN_FLAGS_TEXT}
     TEXT
 
+    HELP_POLICIES = <<-TEXT
+    List active-scan policies in ZAP
+
+    Discovers the scan policy names available on each host (useful for the ascan
+    --policy flag). Pass --policy <name> to report scanner counts for that policy.
+
+    Usage:
+      mzap policies [--policy <name>] [flags]
+
+    Examples:
+      mzap policies --apis http://localhost:8090
+      mzap policies --policy "API-Minimal-Scan" --apis http://localhost:8090
+
+    Flags:
+      --apis string          Comma-separated ZAP API host URLs (default "http://localhost:8090")
+      --apikey string        ZAP API key (omit when API key auth is disabled)
+      --policy string        Report scanner counts for this policy instead of listing names
+      --config string        Config file path (default: $HOME/.config/mzap/config.toml)
+      -h, --help             Show help
+    TEXT
+
+    HELP_SITESTREE = <<-TEXT
+    Export or prune the ZAP Sites Tree
+
+    Uses ZAP 2.16+ text-based Sites Tree files to support differential/incremental
+    scanning in CI. The file path is resolved by the ZAP daemon, so on remote or
+    Docker ZAP the file is written/read on the ZAP host, not the mzap host.
+
+    Usage:
+      mzap sitestree export <path> [flags]
+      mzap sitestree prune <path> [flags]
+
+    Examples:
+      mzap sitestree export baseline.tree --apis http://localhost:8090
+      mzap sitestree prune baseline.tree --apis http://localhost:8090
+
+    Flags:
+      --apis string          Comma-separated ZAP API host URLs (default "http://localhost:8090")
+      --apikey string        ZAP API key (omit when API key auth is disabled)
+      --config string        Config file path (default: $HOME/.config/mzap/config.toml)
+      -h, --help             Show help
+    TEXT
+
     HELP_STOP = <<-TEXT
     Stop running scans
 
@@ -163,6 +262,7 @@ module Mzap
     Types:
       spider       Stop all Spider scans
       ajaxspider   Stop Ajax Spider scans
+      clientspider Stop Client Spider scans
       ascan        Stop all Active Scans
       all          Stop all scan types
 
@@ -185,20 +285,25 @@ module Mzap
     TEXT
 
     SUBCOMMAND_HELP = {
-      "spider"     => HELP_SPIDER,
-      "ajaxspider" => HELP_AJAXSPIDER,
-      "ascan"      => HELP_ASCAN,
-      "pscan"      => HELP_PSCAN,
-      "stop"       => HELP_STOP,
-      "version"    => HELP_VERSION,
+      "spider"       => HELP_SPIDER,
+      "ajaxspider"   => HELP_AJAXSPIDER,
+      "clientspider" => HELP_CLIENTSPIDER,
+      "ascan"        => HELP_ASCAN,
+      "import"       => HELP_IMPORT,
+      "policies"     => HELP_POLICIES,
+      "sitestree"    => HELP_SITESTREE,
+      "pscan"        => HELP_PSCAN,
+      "stop"         => HELP_STOP,
+      "version"      => HELP_VERSION,
     }
 
-    STRING_FLAGS = {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out", "--policy", "--context", "--fail-on"}
+    STRING_FLAGS = {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out", "--policy", "--context", "--fail-on", "--format", "--target-url"}
     INT_FLAGS    = {"--wait-interval", "--wait-timeout", "--concurrency", "--retry", "--retry-delay"}
 
     # Accepted enumerated values, shared between validation and help text intent.
     FAIL_ON_LEVELS = {"informational", "low", "medium", "high"}
     REPORT_FORMATS = {"html", "pdf", "json", "md", "sarif"}
+    IMPORT_FORMATS = {"openapi", "soap", "graphql", "postman"}
 
     def self.run(argv : Array(String) = ARGV, stdout_io : IO = STDOUT, stderr_io : IO = STDERR) : Int32
       Banner.show(stderr_io)
@@ -210,7 +315,7 @@ module Mzap
         return 1
       end
 
-      scan_commands = {"spider", "ajaxspider", "ascan", "pscan"}
+      scan_commands = {"spider", "ajaxspider", "ascan", "clientspider", "pscan", "import"}
       command = args.empty? ? "" : args[0]
       scan_command = scan_commands.includes?(command)
 
@@ -260,7 +365,18 @@ module Mzap
 
       begin
         case command
-        when "spider", "ajaxspider", "ascan"
+        when "spider", "ajaxspider", "ascan", "clientspider", "import"
+          import_format = options.format.downcase
+          if command == "import"
+            if import_format.empty?
+              stderr_io.puts "--format is required for import (openapi/soap/graphql/postman)"
+              return 1
+            end
+            unless IMPORT_FORMATS.includes?(import_format)
+              stderr_io.puts "--format supports only openapi, soap, graphql, or postman"
+              return 1
+            end
+          end
           if options.urls == "-"
             stdin_temp_file = File.tempname("mzap-stdin")
             File.write(stdin_temp_file, STDIN.gets_to_end)
@@ -275,15 +391,34 @@ module Mzap
             return 1
           end
           fail_on_triggered = case command
-                              when "spider"     then Client.spider(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
-                              when "ajaxspider" then Client.ajax_spider(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
-                              when "ascan"      then Client.active_scan(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
-                              else                   false
+                              when "spider"       then Client.spider(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
+                              when "ajaxspider"   then Client.ajax_spider(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
+                              when "ascan"        then Client.active_scan(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
+                              when "clientspider" then Client.client_spider(options.urls, apis: options.apis, options: zap_options, reporter: reporter)
+                              when "import"       then Client.import_api(options.urls, format: import_format, target_url: options.target_url, apis: options.apis, options: zap_options, reporter: reporter)
+                              else                     false
                               end
           return 1 if fail_on_triggered
         when "pscan"
           fail_on_triggered = Client.passive_scan(options.apis, options: zap_options, reporter: reporter)
           return 1 if fail_on_triggered
+        when "policies"
+          Client.list_policies(options.apis, policy: options.policy, options: zap_options, reporter: reporter)
+        when "sitestree"
+          action = command_args[0]?
+          unless action && {"export", "prune"}.includes?(action)
+            stdout_io.puts "Please input sitestree action (export/prune)"
+            return 1
+          end
+          tree_path = command_args[1]?
+          if tree_path.nil? || tree_path.empty?
+            stderr_io.puts "Please provide a file path: mzap sitestree #{action} <path>"
+            return 1
+          end
+          case action
+          when "export" then Client.export_sites_tree(options.apis, file_path: tree_path, options: zap_options, reporter: reporter)
+          when "prune"  then Client.prune_sites_tree(options.apis, file_path: tree_path, options: zap_options, reporter: reporter)
+          end
         when "stop"
           if command_args.empty?
             stdout_io.puts "Please input scanning mode for stop"
@@ -296,12 +431,15 @@ module Mzap
               Client.stop_active_scan(options.apis, options: zap_options, reporter: reporter)
             when "ajaxspider"
               Client.stop_ajax_spider(options.apis, options: zap_options, reporter: reporter)
+            when "clientspider"
+              Client.stop_client_spider(options.apis, options: zap_options, reporter: reporter)
             when "all"
               Client.stop_spider(options.apis, options: zap_options, reporter: reporter)
               Client.stop_ajax_spider(options.apis, options: zap_options, reporter: reporter)
+              Client.stop_client_spider(options.apis, options: zap_options, reporter: reporter)
               Client.stop_active_scan(options.apis, options: zap_options, reporter: reporter)
             else
-              stdout_io.puts "Please input scanning mode for stop (spider/ascan/ajaxspider/all)"
+              stdout_io.puts "Please input scanning mode for stop (spider/ascan/ajaxspider/clientspider/all)"
               return 1
             end
           end
@@ -379,7 +517,7 @@ module Mzap
       end
 
       if (options.wait || !report_format.empty?) && !scan_command
-        return "--wait and report options are only available for spider/ajaxspider/ascan/pscan"
+        return "--wait and report options are only available for spider/ajaxspider/ascan/clientspider/pscan/import"
       end
 
       nil
@@ -483,6 +621,8 @@ module Mzap
       apply_config_field(updated, provided_options, config_options, fail_on, fail_on, fail_on)
       apply_config_field(updated, provided_options, config_options, retry_count, retry_count, retry_count)
       apply_config_field(updated, provided_options, config_options, retry_delay_seconds, retry_delay_seconds, retry_delay_seconds)
+      apply_config_field(updated, provided_options, config_options, format, format, format)
+      apply_config_field(updated, provided_options, config_options, target_url, target_url, target_url)
 
       updated
     end
@@ -513,6 +653,8 @@ module Mzap
       apply_env_string(updated, provided_options.fail_on, "MZAP_FAIL_ON") { |v| updated.fail_on = v }
       apply_env_int(updated, provided_options.retry_count, "MZAP_RETRY") { |v| updated.retry_count = v }
       apply_env_int(updated, provided_options.retry_delay_seconds, "MZAP_RETRY_DELAY") { |v| updated.retry_delay_seconds = v }
+      apply_env_string(updated, provided_options.format, "MZAP_FORMAT") { |v| updated.format = v }
+      apply_env_string(updated, provided_options.target_url, "MZAP_TARGET_URL") { |v| updated.target_url = v }
 
       updated
     end
@@ -620,6 +762,12 @@ module Mzap
       when "--fail-on"
         options.fail_on = value
         provided.fail_on = true
+      when "--format"
+        options.format = value
+        provided.format = true
+      when "--target-url"
+        options.target_url = value
+        provided.target_url = true
       else
         raise ArgumentError.new("Unknown option: #{flag}")
       end
