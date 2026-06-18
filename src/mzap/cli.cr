@@ -1,77 +1,44 @@
 module Mzap
   class CLI
+    # Resolved option values. Property defaults double as the built-in defaults, so
+    # `GlobalOptions.new` (the only call site) yields a fully initialized struct.
     private struct GlobalOptions
-      property config : String
-      property urls : String
-      property apis : String
-      property api_key : String
-      property wait : Bool
-      property wait_interval_seconds : Int32
-      property wait_timeout_seconds : Int32
-      property report_format : String
-      property report_out : String
-      property concurrency : Int32
-      property policy : String
-      property context : String
-      property fail_on : String
-      property retry_count : Int32
-      property retry_delay_seconds : Int32
-      property help : Bool
-
-      def initialize
-        @config = ""
-        @urls = ""
-        @apis = "http://localhost:8090"
-        @api_key = ""
-        @wait = false
-        @wait_interval_seconds = 2
-        @wait_timeout_seconds = 0
-        @report_format = ""
-        @report_out = ""
-        @concurrency = 1
-        @policy = ""
-        @context = ""
-        @fail_on = ""
-        @retry_count = 0
-        @retry_delay_seconds = 5
-        @help = false
-      end
+      property config : String = ""
+      property urls : String = ""
+      property apis : String = "http://localhost:8090"
+      property api_key : String = ""
+      property wait : Bool = false
+      property wait_interval_seconds : Int32 = 2
+      property wait_timeout_seconds : Int32 = 0
+      property report_format : String = ""
+      property report_out : String = ""
+      property concurrency : Int32 = 1
+      property policy : String = ""
+      property context : String = ""
+      property fail_on : String = ""
+      property retry_count : Int32 = 0
+      property retry_delay_seconds : Int32 = 5
+      property help : Bool = false
     end
 
+    # Tracks which options were explicitly provided on the command line, so config
+    # and environment fallbacks only fill in what the user did not set.
     private struct ProvidedOptions
-      property config : Bool
-      property urls : Bool
-      property apis : Bool
-      property api_key : Bool
-      property wait : Bool
-      property wait_interval_seconds : Bool
-      property wait_timeout_seconds : Bool
-      property report_format : Bool
-      property report_out : Bool
-      property concurrency : Bool
-      property policy : Bool
-      property context : Bool
-      property fail_on : Bool
-      property retry_count : Bool
-      property retry_delay_seconds : Bool
-
-      def initialize
-        @config = false
-        @urls = false
-        @apis = false
-        @api_key = false
-        @wait = false
-        @wait_interval_seconds = false
-        @wait_timeout_seconds = false
-        @report_format = false
-        @report_out = false
-        @concurrency = false
-        @policy = false
-        @context = false
-        @fail_on = false
-        @retry_count = false
-        @retry_delay_seconds = false
-      end
+      property config : Bool = false
+      property urls : Bool = false
+      property apis : Bool = false
+      property api_key : Bool = false
+      property wait : Bool = false
+      property wait_interval_seconds : Bool = false
+      property wait_timeout_seconds : Bool = false
+      property report_format : Bool = false
+      property report_out : Bool = false
+      property concurrency : Bool = false
+      property policy : Bool = false
+      property context : Bool = false
+      property fail_on : Bool = false
+      property retry_count : Bool = false
+      property retry_delay_seconds : Bool = false
     end
 
     HELP_TEXT = <<-TEXT
@@ -229,6 +196,10 @@ module Mzap
     STRING_FLAGS = {"--config", "--apikey", "--urls", "--apis", "--report-format", "--report-out", "--policy", "--context", "--fail-on"}
     INT_FLAGS    = {"--wait-interval", "--wait-timeout", "--concurrency", "--retry", "--retry-delay"}
 
+    # Accepted enumerated values, shared between validation and help text intent.
+    FAIL_ON_LEVELS = {"informational", "low", "medium", "high"}
+    REPORT_FORMATS = {"html", "pdf", "json", "md", "sarif"}
+
     def self.run(argv : Array(String) = ARGV, stdout_io : IO = STDOUT, stderr_io : IO = STDERR) : Int32
       Banner.show(stderr_io)
 
@@ -263,55 +234,10 @@ module Mzap
       command_args = args[1..]
       reporter = Reporter.new(stdout_io, stderr_io)
       report_format = options.report_format.downcase
-
-      if options.concurrency <= 0
-        stderr_io.puts "--concurrency must be greater than 0"
-        return 1
-      end
-
-      if options.retry_count < 0
-        stderr_io.puts "--retry must be 0 or greater"
-        return 1
-      end
-
-      if options.retry_delay_seconds < 0
-        stderr_io.puts "--retry-delay must be 0 or greater"
-        return 1
-      end
-
-      if !options.context.empty? && !File.exists?(options.context)
-        stderr_io.puts "Context file not found: #{options.context}"
-        return 1
-      end
-
       fail_on = options.fail_on.downcase
-      unless fail_on.empty? || {"informational", "low", "medium", "high"}.includes?(fail_on)
-        stderr_io.puts "--fail-on supports only informational, low, medium, or high"
-        return 1
-      end
 
-      if options.wait_interval_seconds <= 0
-        stderr_io.puts "--wait-interval must be greater than 0"
-        return 1
-      end
-
-      if options.wait_timeout_seconds < 0
-        stderr_io.puts "--wait-timeout must be 0 or greater"
-        return 1
-      end
-
-      unless report_format.empty? || {"html", "pdf", "json", "md", "sarif"}.includes?(report_format)
-        stderr_io.puts "--report-format supports only html, pdf, json, md, or sarif"
-        return 1
-      end
-
-      if !options.report_out.empty? && report_format.empty?
-        stderr_io.puts "--report-out requires --report-format (html or pdf)"
-        return 1
-      end
-
-      if (options.wait || !report_format.empty?) && !scan_commands.includes?(command)
-        stderr_io.puts "--wait and report options are only available for spider/ajaxspider/ascan/pscan"
+      if error = validate_runtime_options(options, scan_command, report_format, fail_on)
+        stderr_io.puts error
         return 1
       end
 
@@ -405,6 +331,58 @@ module Mzap
       end
 
       0
+    end
+
+    # Validates resolved runtime options, returning the first error message
+    # (or nil when every option is acceptable). Checks run in a fixed order so the
+    # surfaced message is deterministic.
+    private def self.validate_runtime_options(
+      options : GlobalOptions,
+      scan_command : Bool,
+      report_format : String,
+      fail_on : String,
+    ) : String?
+      if options.concurrency <= 0
+        return "--concurrency must be greater than 0"
+      end
+
+      if options.retry_count < 0
+        return "--retry must be 0 or greater"
+      end
+
+      if options.retry_delay_seconds < 0
+        return "--retry-delay must be 0 or greater"
+      end
+
+      if !options.context.empty? && !File.exists?(options.context)
+        return "Context file not found: #{options.context}"
+      end
+
+      unless fail_on.empty? || FAIL_ON_LEVELS.includes?(fail_on)
+        return "--fail-on supports only informational, low, medium, or high"
+      end
+
+      if options.wait_interval_seconds <= 0
+        return "--wait-interval must be greater than 0"
+      end
+
+      if options.wait_timeout_seconds < 0
+        return "--wait-timeout must be 0 or greater"
+      end
+
+      unless report_format.empty? || REPORT_FORMATS.includes?(report_format)
+        return "--report-format supports only html, pdf, json, md, or sarif"
+      end
+
+      if !options.report_out.empty? && report_format.empty?
+        return "--report-out requires --report-format (html or pdf)"
+      end
+
+      if (options.wait || !report_format.empty?) && !scan_command
+        return "--wait and report options are only available for spider/ajaxspider/ascan/pscan"
+      end
+
+      nil
     end
 
     private def self.parse_global_options(argv : Array(String)) : {GlobalOptions, Array(String), ProvidedOptions}

@@ -8,6 +8,9 @@ module Mzap
     DEFAULT_CONFIG_PATH = File.join(".config", "mzap", "config.toml")
     ROOT_TABLE          = "mzap"
 
+    # Options sourced from a config file. Every field is optional; a nil value means
+    # "not set in the file" and lets CLI/env values take precedence. Nilable
+    # properties default to nil, so no explicit initializer is needed.
     class FileOptions
       property path : String?
       property urls : String?
@@ -24,24 +27,6 @@ module Mzap
       property fail_on : String?
       property retry_count : Int32?
       property retry_delay_seconds : Int32?
-
-      def initialize
-        @path = nil
-        @urls = nil
-        @apis = nil
-        @api_key = nil
-        @wait = nil
-        @wait_interval_seconds = nil
-        @wait_timeout_seconds = nil
-        @report_format = nil
-        @report_out = nil
-        @concurrency = nil
-        @policy = nil
-        @context = nil
-        @fail_on = nil
-        @retry_count = nil
-        @retry_delay_seconds = nil
-      end
     end
 
     def load_options(config_path : String) : FileOptions
