@@ -44,33 +44,19 @@ jobs:
             /usr/bin/crystal build src/mzap_cli.cr -o build/mzap-${GITHUB_REF_SLUG}-linux-${ARCH} --release --no-debug --static
           "
       - if: startsWith(matrix.os, 'macos')
-        name: Build binary (macOS)
+        name: Install macOS build dependencies
+        run: brew install openssl@3 pkg-config
+      - if: startsWith(matrix.os, 'macos')
+        name: Build and package binary (macOS)
         run: |
           mkdir -p build
-          # Pin PKG_CONFIG_PATH to openssl@3 so the binary links the current
-          # OpenSSL instead of an EOL openssl@1.1, which would fail to launch on
-          # a clean machine (dyld: libssl.1.1.dylib not found). openssl@3 is the
-          # only Homebrew dylib the binary needs; it is declared in the formula.
-          brew install openssl@3
-          export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+          OPENSSL_PREFIX="$(brew --prefix openssl@3)"
+          export PKG_CONFIG_PATH="${OPENSSL_PREFIX}/lib/pkgconfig"
           BIN="build/mzap-${GITHUB_REF_SLUG}-osx-${ARCH}"
-          crystal build src/mzap_cli.cr \
-            -o "$BIN" \
-            --no-debug --release
-          echo "== otool -L $BIN ==" && otool -L "$BIN"
-          # Guard 1: never ship a macOS binary linked against EOL openssl@1.1.
-          if otool -L "$BIN" | grep -q 'openssl@1.1'; then
-            echo "::error::macOS binary still links EOL openssl@1.1"; exit 1
-          fi
-          # Guard 2: openssl@3 must be the ONLY Homebrew dynamic dep, else the
-          # formula's depends_on list is out of date.
-          EXTRA="$(otool -L "$BIN" \
-            | grep -oE '/(opt/homebrew|usr/local)/(opt|Cellar)/[^/]+' \
-            | grep -v 'openssl@3' | sort -u || true)"
-          if [ -n "$EXTRA" ]; then
-            echo "::error::unexpected non-openssl@3 Homebrew deps (update formula depends_on):"
-            echo "$EXTRA"; exit 1
-          fi
+          crystal build src/mzap_cli.cr -o "$BIN" --no-debug --release
+          chmod +x scripts/package-macos.sh
+          scripts/package-macos.sh "$BIN" "build/mzap-${GITHUB_REF_SLUG}-osx-${ARCH}.tar.gz" mzap
+          rm -f "$BIN"
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
