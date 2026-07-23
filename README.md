@@ -1,6 +1,6 @@
 # mzap
 
-`mzap` is a Crystal CLI for multi-target ZAP scanning.
+`mzap` is a Crystal CLI for multi-target [ZAP](https://www.zaproxy.org) scanning.
 It dispatches targets across one or more ZAP API hosts, supports optional wait mode, and can export reports.
 
 ## Features
