@@ -10,16 +10,16 @@ class Mzap < Formula
   license "MIT"
 
   on_macos do
-    # macOS binaries are dynamically linked; openssl@3 is the only non-system
-    # dependency (enforced by an otool guard in release-binaries.yml).
-    depends_on "openssl@3"
-
+    # macOS ships a tarball holding the binary and its bundled OpenSSL under
+    # lib/. scripts/package-macos.sh rewrites the load paths to
+    # @executable_path/lib and asserts no Homebrew prefix survives, so there is
+    # deliberately no openssl dependency here.
     on_arm do
-      url "https://github.com/hahwul/mzap/releases/download/v__VERSION__/mzap-v__VERSION__-osx-arm64"
+      url "https://github.com/hahwul/mzap/releases/download/v__VERSION__/mzap-v__VERSION__-osx-arm64.tar.gz"
       sha256 "__SHA_OSX_ARM64__"
     end
     on_intel do
-      url "https://github.com/hahwul/mzap/releases/download/v__VERSION__/mzap-v__VERSION__-osx-x86_64"
+      url "https://github.com/hahwul/mzap/releases/download/v__VERSION__/mzap-v__VERSION__-osx-x86_64.tar.gz"
       sha256 "__SHA_OSX_X86_64__"
     end
   end
@@ -37,7 +37,17 @@ class Mzap < Formula
   end
 
   def install
-    bin.install Dir["mzap-v__VERSION__-*"].first => "mzap"
+    if OS.mac?
+      # The binary resolves its OpenSSL through @executable_path/lib, so the
+      # two must stay adjacent. Keep the pair in libexec and expose the binary
+      # via a symlink: dyld resolves @executable_path from the real path, so
+      # lib/ is still found. Installing the binary alone into bin fails at
+      # launch with "libssl.3.dylib not found".
+      libexec.install "mzap", "lib"
+      bin.install_symlink libexec/"mzap"
+    else
+      bin.install Dir["mzap-v__VERSION__-*"].first => "mzap"
+    end
   end
 
   test do
