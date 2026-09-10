@@ -1,10 +1,31 @@
 # Changelog
 
-## Unreleased
+## v2.2.0
+
+### Added
+- `clientspider` command wrapping the ZAP 2.16 browser-based crawler, plus `stop clientspider`, integrated into the existing scan / percentage-wait / stop pipeline (#50).
+- `import` command with `--format openapi|soap|graphql|postman` to seed ZAP from API definitions given as files or URL lists, reusing passive-settle, report generation and `--fail-on` (#50).
+- `policies` command to discover active-scan policy names per host, which makes `ascan --policy` usable without guessing (#50).
+- `sitestree export|prune` command built on the ZAP 2.16 Sites Tree, for differential and incremental CI scans (#50).
+- `--format` and `--target-url` flags, wired through the CLI, TOML config and the `MZAP_FORMAT` / `MZAP_TARGET_URL` environment variables (#50).
+- Crystal 1.20 and 1.21.0 in the supported and tested versions.
+- Homebrew tap distribution: releases now ship a prebuilt-binary formula (#49).
+
+### Changed
+- Requires zap.cr 0.2.0 for the ClientSpider and Postman import parameters (#50).
+- Decomposed the client module and tidied option handling; environment-option application is centralized behind small helpers.
+- Linux arm64 release binaries are built on a native ARM runner instead of under emulation.
+- Container builds use the official `crystallang/crystal` image.
 
 ### Fixed
+- Fibers no longer deadlock under concurrent scans.
+- `--urls -` is accepted again for reading targets from stdin.
+- SARIF `pluginId` is emitted robustly when ZAP omits or varies the plugin identifier.
 - macOS release binaries are now shipped as portable `.tar.gz` archives with bundled OpenSSL libraries, instead of a bare executable linked against Homebrew `openssl@1.1` that failed to launch on clean machines (`dyld: libssl.1.1.dylib not found`).
 - macOS release tarballs are re-signed ad hoc after `install_name_tool` rewrites their dylib load paths. The bundled OpenSSL dylibs were left with a stale signature, and Apple Silicon SIGKILLs any process that maps one, so the tarball died at launch with a bare `killed` and no diagnostic. Packaging now verifies every signature and runs the extracted tarball before publishing it. Nothing broken was ever published: the last release predates the tarball packaging (#54).
+
+### Security
+- The Snapcraft workflow can be dispatched manually so the snap can be rebuilt against Ubuntu security updates without cutting a new release (#53).
 
 ## v2.1.1
 
