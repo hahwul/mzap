@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.2.1
+
+### Fixed
+- The macOS packaging smoke test invoked `mzap --version`, but `version` is a subcommand and unknown flags are rejected, so it exited 1 and failed every macOS job in the v2.2.0 release build. The binary itself was fine — it printed its banner and version before rejecting the flag. The check was added in #54 and could not fire until a release exercised it, so v2.2.0 shipped without its macOS tarballs and without the Homebrew tap formula, which chains off a successful binary build (#57).
+- The packaging failure message blamed the codesign step for any non-zero exit, which made a plain CLI usage error read as a signing failure. It now prints the captured output first and qualifies the signature hint with the symptom that actually indicates it (#57).
+
+### Notes
+- Re-releases the macOS `.tar.gz` artifacts and the Homebrew tap formula that v2.2.0 could not publish. Nothing in the scanner changed between v2.2.0 and v2.2.1; the fixes are all in release packaging.
+
 ## v2.2.0
 
 ### Added
@@ -18,6 +27,7 @@
 - Container builds use the official `crystallang/crystal` image.
 
 ### Fixed
+- `scripts/version_update.cr` truncated `shard.yml` and `snap/snapcraft.yaml` instead of updating them. Crystal's `m` regex flag enables MULTILINE *and* DOTALL, so `/(^version:\s*).+$/m` matched from the version line to the end of the file and the replacement overwrote everything after it (#56).
 - Fibers no longer deadlock under concurrent scans.
 - `--urls -` is accepted again for reading targets from stdin.
 - SARIF `pluginId` is emitted robustly when ZAP omits or varies the plugin identifier.
