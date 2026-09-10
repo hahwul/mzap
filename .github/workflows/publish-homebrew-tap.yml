@@ -26,7 +26,11 @@ jobs:
       - name: Checkout source (formula template)
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.event.workflow_run.head_branch }}
+          # On dispatch, take the template from the ref the workflow runs on,
+          # not from the release tag. The template is version-parameterized, so
+          # pinning it to the tag only means a tag published with a broken
+          # template can never be repaired without cutting a new release.
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || github.event.workflow_run.head_branch }}
 
       - name: Resolve version
         id: ver
@@ -52,14 +56,20 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           V: ${{ steps.ver.outputs.version }}
         run: |
-          # Linux binaries are static; macOS binaries link only openssl@3.
-          for asset in osx-arm64 osx-x86_64 linux-arm64 linux-x86_64; do
+          # Linux binaries are static single files. macOS ships .tar.gz since
+          # #54: the binary plus its bundled OpenSSL under lib/, referenced as
+          # @executable_path/lib, so it depends on nothing from Homebrew.
+          for asset in linux-arm64 linux-x86_64; do
             gh release download "v$V" --repo hahwul/mzap \
               --pattern "mzap-v$V-$asset" --output "mzap-v$V-$asset"
           done
+          for asset in osx-arm64 osx-x86_64; do
+            gh release download "v$V" --repo hahwul/mzap \
+              --pattern "mzap-v$V-$asset.tar.gz" --output "mzap-v$V-$asset.tar.gz"
+          done
           {
-            echo "SHA_OSX_ARM64=$(sha256sum "mzap-v$V-osx-arm64" | awk '{print $1}')"
-            echo "SHA_OSX_X86_64=$(sha256sum "mzap-v$V-osx-x86_64" | awk '{print $1}')"
+            echo "SHA_OSX_ARM64=$(sha256sum "mzap-v$V-osx-arm64.tar.gz" | awk '{print $1}')"
+            echo "SHA_OSX_X86_64=$(sha256sum "mzap-v$V-osx-x86_64.tar.gz" | awk '{print $1}')"
             echo "SHA_LINUX_ARM64=$(sha256sum "mzap-v$V-linux-arm64" | awk '{print $1}')"
             echo "SHA_LINUX_X86_64=$(sha256sum "mzap-v$V-linux-x86_64" | awk '{print $1}')"
           } >> "$GITHUB_ENV"
