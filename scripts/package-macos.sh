@@ -127,11 +127,16 @@ EXTRACT_DIR="$VERIFY_DIR/extracted"
 mkdir -p "$EXTRACT_DIR"
 tar -xzf "$STAGED_OUTPUT" -C "$EXTRACT_DIR"
 smoke_status=0
-VERSION_OUTPUT="$("$EXTRACT_DIR/$NAME" --version)" || smoke_status=$?
+# `version` is a subcommand, not a flag: mzap rejects `--version` with
+# "Unknown option" and exits 1, which looks exactly like a load failure here.
+VERSION_OUTPUT="$("$EXTRACT_DIR/$NAME" version 2>&1)" || smoke_status=$?
 if [[ "$smoke_status" -ne 0 ]]; then
   echo "error: packaged binary failed to run (exit $smoke_status)" >&2
-  echo "       arm64 SIGKILLs binaries and dylibs with an invalid signature;" >&2
-  echo "       check the codesign step above." >&2
+  echo "       output was:" >&2
+  echo "$VERSION_OUTPUT" >&2
+  echo "       if it produced no output at all, suspect the signature:" >&2
+  echo "       arm64 SIGKILLs binaries and dylibs with an invalid one," >&2
+  echo "       so check the codesign step above." >&2
   exit 1
 fi
 # Exit 0 alone is not evidence: a binary that prints nothing has not
