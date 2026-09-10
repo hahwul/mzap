@@ -1,7 +1,7 @@
 files = {
-  "shard.yml"            => /^version:\s*(.+)$/,
-  "src/mzap/version.cr"  => /VERSION\s*=\s*"v?(.+?)"/,
-  "snap/snapcraft.yaml"  => /^version:\s*(.+)$/,
+  "shard.yml"           => /^version:\s*(.+)$/,
+  "src/mzap/version.cr" => /VERSION\s*=\s*"v?(.+?)"/,
+  "snap/snapcraft.yaml" => /^version:\s*(.+)$/,
 }
 
 versions = {} of String => String
