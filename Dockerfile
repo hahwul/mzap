@@ -1,4 +1,4 @@
-ARG CRYSTAL_VERSION=1.20.0
+ARG CRYSTAL_VERSION=1.22.0
 
 FROM crystallang/crystal:${CRYSTAL_VERSION} AS builder
 
@@ -10,7 +10,7 @@ COPY samples ./samples
 RUN mkdir -p /app/bin
 RUN crystal build --release src/mzap_cli.cr -o /app/bin/mzap
 
-FROM debian:bookworm-slim
+FROM ubuntu:26.04
 
 RUN groupadd -r mzap && useradd -r -g mzap -d /app -s /sbin/nologin mzap
 WORKDIR /app
