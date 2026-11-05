@@ -111,22 +111,24 @@ module Mzap
       return ReportOutcome.new(ok: false, error: "(sarif uses alert-based generation)") if options.report_format == "sarif"
 
       full_path = File.expand_path(output_path)
-      report_dir = File.dirname(full_path)
-      report_name = File.basename(full_path)
-      Dir.mkdir_p(report_dir)
-
-      template = report_template(options.report_format)
-      zap_client.reports.generate(
-        title: REPORT_TITLE,
-        template: template,
-        sites: targets.join("|"),
-        report_file_name: report_name,
-        report_dir: report_dir,
-        display: false,
-      )
+      generate_addon_report(zap_client, full_path, options, sites: targets.join("|"))
       ReportOutcome.new(ok: true, error: "")
     rescue ex : Exception
       ReportOutcome.new(ok: false, error: format_error(ex))
+    end
+
+    # Renders through ZAP's report-generation add-on. The daemon writes the
+    # file itself, so `full_path` is a path on the ZAP host.
+    private def generate_addon_report(zap_client : Zap::Client, full_path : String, options : Options, sites : String = "") : Nil
+      Dir.mkdir_p(File.dirname(full_path))
+      zap_client.reports.generate(
+        title: REPORT_TITLE,
+        template: report_template(options.report_format),
+        sites: sites,
+        report_file_name: File.basename(full_path),
+        report_dir: File.dirname(full_path),
+        display: false,
+      )
     end
 
     private def generate_core_report(zap_client : Zap::Client, output_path : String, options : Options) : ReportOutcome
@@ -134,10 +136,11 @@ module Mzap
       Dir.mkdir_p(File.dirname(full_path))
 
       case options.report_format
-      when "html", "pdf"
-        endpoint = options.report_format == "pdf" ? PDF_REPORT_API : HTML_REPORT_API
-        body = zap_client.request_other(endpoint)
-        File.write(full_path, body)
+      when "html"
+        File.write(full_path, zap_client.request_other(HTML_REPORT_API))
+      when "pdf"
+        # ZAP core has no PDF endpoint; retry the add-on without the sites filter.
+        generate_addon_report(zap_client, full_path, options)
       when "json"
         alerts = zap_client.alert.alerts
         File.write(full_path, alerts.to_pretty_json)

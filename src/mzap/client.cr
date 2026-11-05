@@ -25,7 +25,6 @@ module Mzap
 
     REPORT_GENERATE_API = "/JSON/reports/action/generate/"
     HTML_REPORT_API     = "/OTHER/core/other/htmlreport/"
-    PDF_REPORT_API      = "/OTHER/core/other/pdfreport/"
 
     REPORT_TITLE  = "mzap report"
     TEMPLATE_HTML = "traditional-html"
@@ -442,7 +441,7 @@ module Mzap
             when "ajax-spider"
               zap_client.ajax_spider.stop
             when "client-spider"
-              zap_client.client_spider.stop
+              stop_all_client_spider_scans(zap_client)
             end
             success_count += 1
             reporter.info(scan_type, "stopped", api_host)
@@ -454,6 +453,27 @@ module Mzap
       end
 
       reporter.info(scan_type, "summary success=#{success_count} failed=#{failure_count}")
+    end
+
+    CLIENT_SPIDER_STOP_MAX_IDS = 1000
+
+    # The clientSpider API has no stopAllScans and its `stop` requires a scanId,
+    # so walk the ids ZAP hands out sequentially from 0 (reset per session) until
+    # it rejects one as unknown (HTTP 400 illegal_parameter), stopping only scans
+    # still running (status < 100). Any other error propagates.
+    # ponytail: assumes ids are contiguous from 0; scans removed in the desktop
+    # UI leave gaps that end the walk early. Switch to a list view if ZAP adds one.
+    private def stop_all_client_spider_scans(zap_client : Zap::Client) : Nil
+      CLIENT_SPIDER_STOP_MAX_IDS.times do |scan_id|
+        begin
+          status = extract_status_string(zap_client.client_spider.status(scan_id)).try(&.to_i?)
+          zap_client.client_spider.stop(scan_id) unless status && status >= 100
+        rescue ex : Zap::HttpError
+          raise ex unless ex.status_code == 400 && ex.body.try(&.includes?("illegal_parameter"))
+          return
+        end
+      end
+      raise Zap::Error.new("no unknown client spider scan id within #{CLIENT_SPIDER_STOP_MAX_IDS} ids")
     end
   end
 end

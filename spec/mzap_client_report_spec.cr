@@ -535,7 +535,7 @@ describe Mzap do
     end
   end
 
-  it "falls back to core pdf report endpoint when filtered pdf report fails" do
+  it "retries pdf generation without the sites filter when filtered pdf report fails" do
     server = TestServer.new(->(context : HTTP::Server::Context) do
       case context.request.path
       when Mzap::Client::ACCESS_API
@@ -548,11 +548,13 @@ describe Mzap do
         context.response.status_code = 200
         context.response.print(%({"status":"100"}))
       when Mzap::Client::REPORT_GENERATE_API
-        context.response.status_code = 404
-        context.response.print(%({"error":"missing"}))
-      when Mzap::Client::PDF_REPORT_API
-        context.response.status_code = 200
-        context.response.print("pdf fallback bytes")
+        if HTTP::Params.parse(context.request.query || "")["sites"]?
+          context.response.status_code = 400
+          context.response.print(%({"code":"illegal_parameter"}))
+        else
+          context.response.status_code = 200
+          context.response.print(%({"generate":"report.pdf"}))
+        end
       else
         context.response.status_code = 404
         context.response.print(%({"error":"not found"}))
@@ -569,11 +571,15 @@ describe Mzap do
         Mzap.spider(target_file, apis: server.url, options: options, reporter: reporter)
       end
 
-      paths = server.requests.map(&.path)
-      paths.includes?(Mzap::Client::REPORT_GENERATE_API).should be_true
-      paths.includes?(Mzap::Client::PDF_REPORT_API).should be_true
-      File.exists?(report_path).should be_true
-      File.read(report_path).should eq("pdf fallback bytes")
+      generate_requests = server.requests.select { |r| r.path == Mzap::Client::REPORT_GENERATE_API }
+      generate_requests.size.should eq(2)
+      first = HTTP::Params.parse(generate_requests[0].query || "")
+      second = HTTP::Params.parse(generate_requests[1].query || "")
+      first["sites"].should eq("https://pdf-fallback.test")
+      second["sites"]?.should be_nil
+      second["template"].should eq("traditional-pdf")
+      second["reportFileName"].should eq(File.basename(report_path))
+      server.requests.any?(&.path.starts_with?("/OTHER/")).should be_false
       stdout_io.to_s.includes?("fallback=1").should be_true
     ensure
       File.delete(report_path) if File.exists?(report_path)

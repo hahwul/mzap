@@ -60,18 +60,74 @@ describe Mzap do
     end
   end
 
-  it "sends client spider stop request" do
-    server = TestServer.new
+  it "stops running client spider scans until ZAP rejects a scan id as unknown" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      scan_id = HTTP::Params.parse(context.request.query || "")["scanId"]?.try(&.to_i?) || -1
+      if scan_id < 0 || scan_id >= 3
+        context.response.status_code = 400
+        context.response.print(%({"code":"illegal_parameter","message":"Provided parameter has illegal or unrecognized value (scanId)."}))
+      elsif context.request.path == Mzap::Client::CLIENT_SPIDER_STAT
+        context.response.status_code = 200
+        context.response.print(scan_id == 1 ? %({"status":"100"}) : %({"status":"42"}))
+      else
+        context.response.status_code = 200
+        context.response.print(%({"Result":"OK"}))
+      end
+    end)
 
     begin
-      reporter = Mzap::Reporter.new(IO::Memory.new, IO::Memory.new)
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
       options = Mzap::Options.new(api_key: "stop-key")
       Mzap.stop_client_spider(server.url, options: options, reporter: reporter)
 
-      requests = server.requests
-      requests.size.should eq(1)
-      requests[0].path.should eq(Mzap::Client::CLIENT_SPIDER_STOP)
-      requests[0].api_key.should eq("stop-key")
+      stops = server.requests.select { |r| r.path == Mzap::Client::CLIENT_SPIDER_STOP }
+      stops.map { |r| HTTP::Params.parse(r.query || "")["scanId"] }.should eq(["0", "2"])
+      server.requests.last.path.should eq(Mzap::Client::CLIENT_SPIDER_STAT)
+      HTTP::Params.parse(server.requests.last.query || "")["scanId"].should eq("3")
+      stdout_io.to_s.includes?("summary success=1 failed=0").should be_true
+      stderr_io.to_s.includes?("error (stop)").should be_false
+    ensure
+      server.close
+    end
+  end
+
+  it "gives up on client spider stop when the server never rejects a scan id" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      context.response.status_code = 200
+      context.response.print(%({"status":"100"}))
+    end)
+
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      Mzap.stop_client_spider(server.url, options: Mzap::Options.new, reporter: reporter)
+
+      server.requests.size.should eq(Mzap::Client::CLIENT_SPIDER_STOP_MAX_IDS)
+      stderr_io.to_s.includes?("error (stop) (no unknown client spider scan id").should be_true
+      stdout_io.to_s.includes?("summary success=0 failed=1").should be_true
+    ensure
+      server.close
+    end
+  end
+
+  it "reports client spider stop failures other than an unknown scan id" do
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      context.response.status_code = 500
+      context.response.print(%({"code":"internal_error"}))
+    end)
+
+    begin
+      stdout_io = IO::Memory.new
+      stderr_io = IO::Memory.new
+      reporter = Mzap::Reporter.new(stdout_io, stderr_io)
+      Mzap.stop_client_spider(server.url, options: Mzap::Options.new, reporter: reporter)
+
+      server.requests.size.should eq(1)
+      stderr_io.to_s.includes?("error (stop) (HTTP 500)").should be_true
+      stdout_io.to_s.includes?("summary success=0 failed=1").should be_true
     ensure
       server.close
     end

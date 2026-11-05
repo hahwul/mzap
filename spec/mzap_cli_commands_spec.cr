@@ -149,7 +149,15 @@ describe Mzap::CLI do
   end
 
   it "runs stop all via CLI for all stop endpoints" do
-    server = TestServer.new
+    server = TestServer.new(->(context : HTTP::Server::Context) do
+      if context.request.path == Mzap::Client::CLIENT_SPIDER_STAT
+        context.response.status_code = 400
+        context.response.print(%({"code":"illegal_parameter"}))
+      else
+        context.response.status_code = 200
+        context.response.print(%({"ok":"true"}))
+      end
+    end)
     stdout_io = IO::Memory.new
     stderr_io = IO::Memory.new
 
@@ -161,7 +169,7 @@ describe Mzap::CLI do
         [
           stop_path(Mzap::Client::SPIDER_STOP),
           stop_path(Mzap::Client::AJAX_SPIDER_STOP),
-          stop_path(Mzap::Client::CLIENT_SPIDER_STOP),
+          stop_path(Mzap::Client::CLIENT_SPIDER_STAT),
           stop_path(Mzap::Client::ASCAN_STOP),
         ]
       )
